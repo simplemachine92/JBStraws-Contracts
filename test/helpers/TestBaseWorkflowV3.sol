@@ -5,9 +5,9 @@ import "forge-std/Test.sol";
 
 import "@jbx-protocol/juice-contracts-v3/contracts/JBController3_1.sol";
 import "@jbx-protocol/juice-contracts-v3/contracts/JBDirectory.sol";
-import "@jbx-protocol/juice-contracts-v3/contracts/JBETHPaymentTerminal.sol";
+import "@jbx-protocol/juice-contracts-v3/contracts/JBETHPaymentTerminal3_1_1.sol";
 import "@jbx-protocol/juice-contracts-v3/contracts/JBFundAccessConstraintsStore.sol";
-import "@jbx-protocol/juice-contracts-v3/contracts/JBSingleTokenPaymentTerminalStore.sol";
+import "@jbx-protocol/juice-contracts-v3/contracts/JBSingleTokenPaymentTerminalStore3_1_1.sol";
 import "@jbx-protocol/juice-contracts-v3/contracts/JBFundingCycleStore.sol";
 import "@jbx-protocol/juice-contracts-v3/contracts/JBOperatorStore.sol";
 import "@jbx-protocol/juice-contracts-v3/contracts/JBPrices.sol";
@@ -15,8 +15,8 @@ import "@jbx-protocol/juice-contracts-v3/contracts/JBProjects.sol";
 import "@jbx-protocol/juice-contracts-v3/contracts/JBSplitsStore.sol";
 import "@jbx-protocol/juice-contracts-v3/contracts/JBTokenStore.sol";
 
-import "@jbx-protocol/juice-contracts-v3/contracts/structs/JBDidPayData.sol";
-import "@jbx-protocol/juice-contracts-v3/contracts/structs/JBDidRedeemData.sol";
+import "@jbx-protocol/juice-contracts-v3/contracts/structs/JBDidPayData3_1_1.sol";
+import "@jbx-protocol/juice-contracts-v3/contracts/structs/JBDidRedeemData3_1_1.sol";
 import "@jbx-protocol/juice-contracts-v3/contracts/structs/JBFee.sol";
 import "@jbx-protocol/juice-contracts-v3/contracts/structs/JBFundAccessConstraints.sol";
 import "@jbx-protocol/juice-contracts-v3/contracts/structs/JBFundingCycle.sol";
@@ -57,8 +57,8 @@ contract TestBaseWorkflowV3 is Test {
     JBTokenStore internal _jbTokenStore;
     JBSplitsStore internal _jbSplitsStore;
     JBController3_1 internal _jbController;
-    JBSingleTokenPaymentTerminalStore internal _jbPaymentTerminalStore;
-    JBETHPaymentTerminal internal _jbETHPaymentTerminal;
+    JBSingleTokenPaymentTerminalStore3_1_1 internal _jbPaymentTerminalStore;
+    JBETHPaymentTerminal3_1_1 internal _jbETHPaymentTerminal;
     AccessJBLib internal _accessJBLib;
 
     //*********************************************************************//
@@ -127,19 +127,19 @@ contract TestBaseWorkflowV3 is Test {
         vm.prank(_multisig);
         _jbDirectory.setIsAllowedToSetFirstController(address(_jbController), true);
 
-        // JBETHPaymentTerminalStore
-        _jbPaymentTerminalStore = new JBSingleTokenPaymentTerminalStore(
+        // JBETHPaymentTerminalStore3_1_1
+        _jbPaymentTerminalStore = new JBSingleTokenPaymentTerminalStore3_1_1(
             _jbDirectory,
             _jbFundingCycleStore,
             _jbPrices
         );
-        vm.label(address(_jbPaymentTerminalStore), "JBSingleTokenPaymentTerminalStore");
+        vm.label(address(_jbPaymentTerminalStore), "JBSingleTokenPaymentTerminalStore3_1_1");
 
         // AccessJBLib
         _accessJBLib = new AccessJBLib();
 
-        // JBETHPaymentTerminal
-        _jbETHPaymentTerminal = new JBETHPaymentTerminal(
+        // JBETHPaymentTerminal3_1_1
+        _jbETHPaymentTerminal = new JBETHPaymentTerminal3_1_1(
             _accessJBLib.ETH(),
             _jbOperatorStore,
             _jbProjects,
@@ -149,7 +149,7 @@ contract TestBaseWorkflowV3 is Test {
             address(_jbPaymentTerminalStore),
             _multisig
         );
-        vm.label(address(_jbETHPaymentTerminal), "JBETHPaymentTerminal");
+        vm.label(address(_jbETHPaymentTerminal), "JBETHPaymentTerminal3_1_1");
     }
 
     //https://ethereum.stackexchange.com/questions/24248/how-to-calculate-an-ethereum-contracts-address-during-its-creation-using-the-so
