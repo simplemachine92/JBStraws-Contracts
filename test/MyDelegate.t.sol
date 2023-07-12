@@ -3,58 +3,74 @@ pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-import {MyDelegate} from "../src/MyDelegate.sol";
-import {MyDelegateProjectDeployer} from "../src/MyDelegateProjectDeployer.sol";
-import {IJBDelegatesRegistry} from "@jbx-protocol/juice-delegates-registry/src/interfaces/IJBDelegatesRegistry.sol";
-import {IJBOperatorStore} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBOperatorStore.sol";
-import {IJBFundingCycleBallot} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBFundingCycleBallot.sol";
-import {JBGlobalFundingCycleMetadata} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBFundingCycleMetadata.sol";
-import {MyDelegateDeployer} from "./../src/MyDelegateDeployer.sol";
-import {IDelegateProjectDeployer} from "../src/interfaces/IDelegateProjectDeployer.sol";
-import "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBController3_1.sol";
-import "@jbx-protocol/juice-delegates-registry/src/JBDelegatesRegistry.sol";
-import "@jbx-protocol/juice-delegates-registry/src/interfaces/IJBDelegatesRegistry.sol";
 import "../src/structs/LaunchProjectData.sol";
 import "../src/structs/LaunchFundingCyclesData.sol";
 import "../src/structs/DeployMyDelegateData.sol";
 import "./helpers/TestBaseWorkflowV3.sol";
+import "@jbx-protocol/juice-delegates-registry/src/JBDelegatesRegistry.sol";
 
+import {MyDelegate} from "../src/MyDelegate.sol";
+import {MyDelegateProjectDeployer} from "../src/MyDelegateProjectDeployer.sol";
+import {IJBDelegatesRegistry} from "@jbx-protocol/juice-delegates-registry/src/interfaces/IJBDelegatesRegistry.sol";
+import {IJBFundingCycleBallot} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBFundingCycleBallot.sol";
+import {JBGlobalFundingCycleMetadata} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBFundingCycleMetadata.sol";
+import {MyDelegateDeployer} from "./../src/MyDelegateDeployer.sol";
+
+// Inherits from "./helpers/TestBaseWorkflowV3.sol", called by super.setUp()
 contract MyDelegateTest_Unit is TestBaseWorkflowV3 {
-    using stdStorage for StdStorage;
     using JBFundingCycleMetadataResolver for JBFundingCycle;
 
+    // Project setup params
     JBProjectMetadata _projectMetadata;
     JBFundingCycleData _data;
-    JBFundingCycleData _dataReconfiguration;
-    JBFundingCycleData _dataWithoutBallot;
     JBFundingCycleMetadata _metadata;
     JBFundAccessConstraints[] _fundAccessConstraints; // Default empty
     IJBPaymentTerminal[] _terminals; // Default empty
+
+    // Delegate setup params
+    JBDelegatesRegistry delegatesRegistry;
     MyDelegate _delegateImpl;
     MyDelegateDeployer _delegateDepl;
-    JBDelegatesRegistry delegatesRegistry;
     DeployMyDelegateData delegateData;
     MyDelegateProjectDeployer projectDepl;
 
+    // Assigned when project is launched
     uint256 _projectId;
+
+    // Used in JBFundingCycleMetadata
     uint256 reservedRate = 4500;
+
+    // Used in JBFundingCycleData
     uint256 weight = 10 ** 18; // Minting 1 token per eth
 
     function setUp() public override {
+        // Provides us with _jbOperatorStore and _jbETHPaymentTerminal
         super.setUp();
 
-        delegatesRegistry = new JBDelegatesRegistry(IJBDelegatesRegistry(address(0)));
+        /* 
+        This setup follows a DelegateProjectDeployer pattern like in https://docs.juicebox.money/dev/extensions/juice-721-delegate/
+        It deploys a new JB project and funding cycle, and then attaches our delegate to that funding cycle as a DataSource and Delegate.
+        */
 
-        _delegateImpl = new MyDelegate();
-
-        _delegateDepl = new MyDelegateDeployer(_delegateImpl, delegatesRegistry);
-
+        // Placeholder project metadata, would customize this in prod.
         _projectMetadata = JBProjectMetadata({content: "myIPFSHash", domain: 1});
 
+        // https://docs.juicebox.money/dev/extensions/juice-delegates-registry/jbdelegatesregistry/
+        delegatesRegistry = new JBDelegatesRegistry(IJBDelegatesRegistry(address(0)));
+
+        // Instance of our delegate code
+        _delegateImpl = new MyDelegate();
+
+        // Required for our custom project deployer below, eventually attaches the delegate to the funding cycle.
+        _delegateDepl = new MyDelegateDeployer(_delegateImpl, delegatesRegistry);
+
+        // Custom deployer
         projectDepl = new MyDelegateProjectDeployer(_delegateDepl, _jbOperatorStore);
 
+
+        // The following describes the funding cycle, access constraints, and metadata necessary for our project.
         _data = JBFundingCycleData({
-            duration: 6 days,
+            duration: 30 days,
             weight: weight,
             discountRate: 0,
             ballot: IJBFundingCycleBallot(address(0))
@@ -96,17 +112,21 @@ contract MyDelegateTest_Unit is TestBaseWorkflowV3 {
             })
         );
 
+        // Imported from TestBaseWorkflowV3.sol via super.setUp() https://docs.juicebox.money/dev/learn/architecture/terminals/
         _terminals = [_jbETHPaymentTerminal];
 
         JBGroupedSplits[] memory _groupedSplits = new JBGroupedSplits[](1); // Default empty
 
+        // Our delegate adds an allowlist functionality, create a mock list of one address for testing.
         address[] memory aList = new address[](1);
         aList[0] = address(123);
 
+        // The imported struct used by our delegate
         delegateData = DeployMyDelegateData({
             allowList: aList
         });
 
+        // Assemble all of our previous configuration for our project deployer
          LaunchProjectData memory launchProjectData = LaunchProjectData({
             projectMetadata: _projectMetadata,
             data: _data,
@@ -118,6 +138,8 @@ contract MyDelegateTest_Unit is TestBaseWorkflowV3 {
             memo: ""
         });
 
+
+        // Blastoff
         _projectId = projectDepl.launchProjectFor(
             address(123),
             delegateData,
@@ -127,11 +149,28 @@ contract MyDelegateTest_Unit is TestBaseWorkflowV3 {
 
     }
 
-    function testLaunchProject() public {
-        emit log_uint(_projectId);
+    function testFail_PaymentFromUnAllowed() public {
+        vm.deal(address(124), 1 ether);
+        vm.prank(address(124));
+        _jbETHPaymentTerminal.pay{value: 1 ether}(
+            1,
+            100,
+            address(0),
+            _beneficiary,
+            /* _minReturnedTokens */
+            0,
+            /* _preferClaimedTokens */
+            false,
+            /* _memo */
+            "Take my money!",
+            /* _delegateMetadata */
+            ""
+        );
 
-        vm.deal(address(123), 2 ether);
-        vm.deal(address(124), 2 ether);
+    }
+
+    function test_PaymentFromAllowed() public {
+        vm.deal(address(123), 1 ether);
         vm.prank(address(123));
         _jbETHPaymentTerminal.pay{value: 1 ether}(
             1,
@@ -149,4 +188,5 @@ contract MyDelegateTest_Unit is TestBaseWorkflowV3 {
         );
 
     }
+
 }
