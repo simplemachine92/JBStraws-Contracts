@@ -13,6 +13,7 @@ import {LaunchFundingCyclesData} from "./structs/LaunchFundingCyclesData.sol";
 import {ReconfigureFundingCyclesData} from "./structs/ReconfigureFundingCyclesData.sol";
 import {MyDelegate} from "./MyDelegate.sol";
 import {MyDelegateDeployer} from "./MyDelegateDeployer.sol";
+import {IDelegateProjectDeployer} from "./interfaces/IDelegateProjectDeployer.sol";
 
 /// @notice Deploys a project, or reconfigure an existing project's funding cycles, with a newly deployed Delegate attached.
 contract MyDelegateProjectDeployer is JBOperatable {
