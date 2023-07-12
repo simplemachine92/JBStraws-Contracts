@@ -14,7 +14,6 @@ import {IDelegateProjectDeployer} from "../src/interfaces/IDelegateProjectDeploy
 import "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBController3_1.sol";
 import "@jbx-protocol/juice-delegates-registry/src/JBDelegatesRegistry.sol";
 import "@jbx-protocol/juice-delegates-registry/src/interfaces/IJBDelegatesRegistry.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "../src/structs/LaunchProjectData.sol";
 import "../src/structs/LaunchFundingCyclesData.sol";
 import "../src/structs/DeployMyDelegateData.sol";
@@ -136,11 +135,11 @@ contract MyDelegateTest_Unit is TestBaseWorkflowV3 {
         vm.prank(address(123));
         _jbETHPaymentTerminal.pay{value: 1 ether}(
             1,
-            1,
+            100,
             address(0),
-            address(123),
+            _beneficiary,
             /* _minReturnedTokens */
-            1,
+            0,
             /* _preferClaimedTokens */
             false,
             /* _memo */
