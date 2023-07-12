@@ -4,7 +4,7 @@ out = 'out'
 libs = ['lib', 'node_modules']
 optimizer_runs = 200
 verbosity = 3 # display errors
-match_contract = "Unit" # only runs unit tests by default
+# match_contract = "Unit" # only runs unit tests by default
 sizes = true
 
 [profile.CI] # run via FOUNDRY_PROFILE=CI foundry test
