@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-// import {mulDiv} from '@prb/math/src/Common.sol';
+import {mulDiv} from '@prb/math/src/Common.sol';
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IJBDirectory} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBDirectory.sol";
 import {IJBFundingCycleDataSource3_1_1} from
@@ -10,6 +10,7 @@ import {IJBPayDelegate3_1_1} from "@jbx-protocol/juice-contracts-v3/contracts/in
 import {IJBPaymentTerminal} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBPaymentTerminal.sol";
 import {IJBRedemptionDelegate3_1_1} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBRedemptionDelegate3_1_1.sol";
 import {JBPayParamsData} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBPayParamsData.sol";
+import {JBTokenAmount} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBTokenAmount.sol";
 import {JBDidPayData3_1_1} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBDidPayData3_1_1.sol";
 import {JBDidRedeemData3_1_1} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBDidRedeemData3_1_1.sol";
 import {JBRedeemParamsData} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBRedeemParamsData.sol";
@@ -17,13 +18,15 @@ import {JBPayDelegateAllocation3_1_1} from "@jbx-protocol/juice-contracts-v3/con
 import {JBRedemptionDelegateAllocation3_1_1} from
     "@jbx-protocol/juice-contracts-v3/contracts/structs/JBRedemptionDelegateAllocation3_1_1.sol";
 import {DeployMyDelegateData} from "./structs/DeployMyDelegateData.sol";
+import {ContributorSplitData} from "./structs/ContributorSplitData.sol";
 
 /// @notice A contract that is a Data Source, a Pay Delegate, and a Redemption Delegate.
-/// @dev This example implementation confines payments to an allow list.
+/// @dev This implementation optionally allows donations directly to contributors. 
 contract MyDelegate is IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBRedemptionDelegate3_1_1 {
     error INVALID_PAYMENT_EVENT(address caller, uint256 projectId, uint256 value);
     error INVALID_REDEMPTION_EVENT(address caller, uint256 projectId, uint256 value);
     error PAYER_NOT_ON_ALLOWLIST(address payer);
+    event Split(uint256 split);
 
     /// @notice The Juicebox project ID this contract's functionality applies to.
     uint256 public projectId;
@@ -32,7 +35,7 @@ contract MyDelegate is IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBR
     IJBDirectory public directory;
 
     /// @notice Addresses allowed to make payments to the treasury.
-    mapping(address => bool) public paymentFromAddressIsAllowed;
+    mapping(address => bool) public topContributors;
 
     /// @notice This function gets called when the project receives a payment.
     /// @dev Part of IJBFundingCycleDataSource.
@@ -52,9 +55,15 @@ contract MyDelegate is IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBR
         weight = _data.weight;
         // Forward the default memo received from the payer.
         memo = _data.memo;
-        // Add `this` contract as a Pay Delegate so that it receives a `didPay` call. Don't send any funds to the delegate (keep all funds in the treasury).
+
+        (ContributorSplitData memory sData) = abi.decode(_data.metadata, (ContributorSplitData));
+
         delegateAllocations = new JBPayDelegateAllocation3_1_1[](1);
-        delegateAllocations[0] = JBPayDelegateAllocation3_1_1(this, 0, '');
+
+        // Reminder: We need to check for different token types here and recalc
+        uint256 distAmount = mulDiv(_data.amount.value, sData.bpToDisperse, 10000);
+
+        sData.donateToContributors == true ? delegateAllocations[0] = JBPayDelegateAllocation3_1_1(this, distAmount, '') : delegateAllocations[0] = JBPayDelegateAllocation3_1_1(this, 0, '');
     }
 
     /// @notice This function gets called when the project's token holders redeem.
@@ -105,9 +114,9 @@ contract MyDelegate is IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBR
         directory = _directory;
 
         // Store the allow list.
-        uint256 _numberOfAllowedAddresses = _deployMyDelegateData.allowList.length;
-        for (uint256 _i; _i < _numberOfAllowedAddresses;) {
-            paymentFromAddressIsAllowed[_deployMyDelegateData.allowList[_i]] = true;
+        uint256 _numberOfTopContributors = _deployMyDelegateData.topContributorList.length;
+        for (uint256 _i; _i < _numberOfTopContributors;) {
+            topContributors[_deployMyDelegateData.topContributorList[_i]] = true;
             unchecked {
                 ++_i;
             }
@@ -121,12 +130,13 @@ contract MyDelegate is IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBR
     function didPay(JBDidPayData3_1_1 calldata _data) external payable virtual override {
         // Make sure the caller is a terminal of the project, and that the call is being made on behalf of an interaction with the correct project.
         if (
-            msg.value != 0 || !directory.isTerminalOf(projectId, IJBPaymentTerminal(msg.sender))
-                || _data.projectId != projectId
+            !directory.isTerminalOf(projectId, IJBPaymentTerminal(msg.sender)) || _data.projectId != projectId
         ) revert INVALID_PAYMENT_EVENT(msg.sender, _data.projectId, msg.value);
 
         // Make sure the address is on the allow list.
-        if (!paymentFromAddressIsAllowed[_data.payer]) revert PAYER_NOT_ON_ALLOWLIST(_data.payer);
+        /* if (!topContributors[_data.payer]) revert PAYER_NOT_ON_ALLOWLIST(_data.payer); */
+
+        // ^ Instead, we will disperse funds between contributors here.
     }
 
     /// @notice Received hook from the payment terminal after a redemption.

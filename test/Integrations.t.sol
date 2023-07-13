@@ -15,6 +15,7 @@ import {IJBDelegatesRegistry} from "@jbx-protocol/juice-delegates-registry/src/i
 import {IJBFundingCycleBallot} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBFundingCycleBallot.sol";
 import {JBGlobalFundingCycleMetadata} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBFundingCycleMetadata.sol";
 import {MyDelegateDeployer} from "./../src/MyDelegateDeployer.sol";
+import {ContributorSplitData} from "../src/structs/ContributorSplitData.sol";
 
 // Inherits from "./helpers/TestBaseWorkflowV3.sol", called by super.setUp()
 contract MyDelegateTest_Int is TestBaseWorkflowV3 {
@@ -118,12 +119,15 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
         JBGroupedSplits[] memory _groupedSplits = new JBGroupedSplits[](1); // Default empty
 
         // Our delegate adds an allowlist functionality, create a mock list of one address for testing.
-        address[] memory aList = new address[](1);
+        address[] memory aList = new address[](4);
         aList[0] = address(123);
+        aList[1] = address(1234);
+        aList[2] = address(12345);
+        aList[3] = address(123456);
 
         // The imported struct used by our delegate
         delegateData = DeployMyDelegateData({
-            allowList: aList
+            topContributorList: aList
         });
 
         // Assemble all of our previous configuration for our project deployer
@@ -169,23 +173,22 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
 
     }
 
-    /* 
-    function pay(
-    uint256 _projectId,
-    uint256 _amount,
-    address _token,
-    address _beneficiary,
-    uint256 _minReturnedTokens,
-    bool _preferClaimedTokens,
-    string calldata _memo,
-    bytes calldata _metadata
-    )
-    */
+    function test_PaymentForContributorsSplit() public {
+        address[] memory aList = new address[](4);
+        aList[0] = address(123);
+        aList[1] = address(1234);
+        aList[2] = address(12345);
+        aList[3] = address(123456);
 
-    function test_PaymentFromAllowed() public {
-        emit log_uint(address(_jbETHPaymentTerminal).balance);
+        ContributorSplitData memory splitCallData = ContributorSplitData({
+            donateToContributors: true,
+            disperseToAll: true,
+            bpToDisperse: 2500,
+            selectedContributors: aList
+        });
 
-        bytes memory metadata = abi.encode(new bytes(0), new bytes(0), 1 ether);
+        // The last uint in this data denotes how much to distribute to the top contributors.
+        bytes memory metadata = abi.encode(splitCallData);
 
         vm.deal(address(123), 1 ether);
         vm.prank(address(123));
@@ -197,15 +200,16 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
             /* _minReturnedTokens */
             0,
             /* _preferClaimedTokens */
-            true,
+            false,
             /* _memo */
             "Take my money!",
             /* _delegateMetadata */
             metadata
         );
 
-        emit log_uint(address(_jbETHPaymentTerminal).balance);
-        emit log_uint(address(0xCDfc4483dfC62f9072de6b740b996EB0E295A467).balance);
+        // Check that ETH payment was split correctly between terminal and delegate
+        assertEq(address(_jbETHPaymentTerminal).balance, .75 ether);
+        assertEq(address(0xCDfc4483dfC62f9072de6b740b996EB0E295A467).balance, .25 ether);
 
     }
 
