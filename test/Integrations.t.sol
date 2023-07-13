@@ -17,7 +17,7 @@ import {JBGlobalFundingCycleMetadata} from "@jbx-protocol/juice-contracts-v3/con
 import {MyDelegateDeployer} from "./../src/MyDelegateDeployer.sol";
 
 // Inherits from "./helpers/TestBaseWorkflowV3.sol", called by super.setUp()
-contract MyDelegateTest_Unit is TestBaseWorkflowV3 {
+contract MyDelegateTest_Int is TestBaseWorkflowV3 {
     using JBFundingCycleMetadataResolver for JBFundingCycle;
 
     // Project setup params
@@ -97,7 +97,7 @@ contract MyDelegateTest_Unit is TestBaseWorkflowV3 {
             useTotalOverflowForRedemptions: false,
             useDataSourceForPay: true,
             useDataSourceForRedeem: false,
-            dataSource: address(_delegateImpl),
+            dataSource: address(0),
             metadata: 0
         });
 
@@ -154,7 +154,7 @@ contract MyDelegateTest_Unit is TestBaseWorkflowV3 {
         vm.prank(address(124));
         _jbETHPaymentTerminal.pay{value: 1 ether}(
             1,
-            100,
+            0,
             address(0),
             _beneficiary,
             /* _minReturnedTokens */
@@ -169,23 +169,43 @@ contract MyDelegateTest_Unit is TestBaseWorkflowV3 {
 
     }
 
+    /* 
+    function pay(
+    uint256 _projectId,
+    uint256 _amount,
+    address _token,
+    address _beneficiary,
+    uint256 _minReturnedTokens,
+    bool _preferClaimedTokens,
+    string calldata _memo,
+    bytes calldata _metadata
+    )
+    */
+
     function test_PaymentFromAllowed() public {
+        emit log_uint(address(_jbETHPaymentTerminal).balance);
+
+        bytes memory metadata = abi.encode(new bytes(0), new bytes(0), 1 ether);
+
         vm.deal(address(123), 1 ether);
         vm.prank(address(123));
         _jbETHPaymentTerminal.pay{value: 1 ether}(
             1,
-            100,
+            1 ether,
             address(0),
             _beneficiary,
             /* _minReturnedTokens */
             0,
             /* _preferClaimedTokens */
-            false,
+            true,
             /* _memo */
             "Take my money!",
             /* _delegateMetadata */
-            ""
+            metadata
         );
+
+        emit log_uint(address(_jbETHPaymentTerminal).balance);
+        emit log_uint(address(0xCDfc4483dfC62f9072de6b740b996EB0E295A467).balance);
 
     }
 
