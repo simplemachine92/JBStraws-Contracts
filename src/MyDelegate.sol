@@ -25,7 +25,7 @@ import {ContributorSplitData} from "./structs/ContributorSplitData.sol";
 contract MyDelegate is IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBRedemptionDelegate3_1_1 {
     error INVALID_PAYMENT_EVENT(address caller, uint256 projectId, uint256 value);
     error INVALID_REDEMPTION_EVENT(address caller, uint256 projectId, uint256 value);
-    error PAYER_NOT_ON_ALLOWLIST(address payer);
+    error INVALID_CONTRIBUTOR_ADDRESS();
     event Split(uint256 split);
 
     /// @notice The Juicebox project ID this contract's functionality applies to.
@@ -35,7 +35,7 @@ contract MyDelegate is IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBR
     IJBDirectory public directory;
 
     /// @notice Addresses allowed to make payments to the treasury.
-    mapping(address => bool) public topContributors;
+    address[] public topContributors;
 
     /// @notice This function gets called when the project receives a payment.
     /// @dev Part of IJBFundingCycleDataSource.
@@ -58,12 +58,20 @@ contract MyDelegate is IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBR
 
         (ContributorSplitData memory sData) = abi.decode(_data.metadata, (ContributorSplitData));
 
+        for (uint256 _i; _i < sData.selectedContributors.length;) {
+                if (!isAddressInArray(sData.selectedContributors[_i])) 
+                    revert INVALID_CONTRIBUTOR_ADDRESS();
+                unchecked {
+                ++_i;
+            }
+        }
+
         delegateAllocations = new JBPayDelegateAllocation3_1_1[](1);
 
         // Reminder: We need to check for different token types here and recalc
         uint256 distAmount = mulDiv(_data.amount.value, sData.bpToDisperse, 10000);
 
-        sData.donateToContributors == true ? delegateAllocations[0] = JBPayDelegateAllocation3_1_1(this, distAmount, '') : delegateAllocations[0] = JBPayDelegateAllocation3_1_1(this, 0, '');
+        sData.donateToContributors ? delegateAllocations[0] = JBPayDelegateAllocation3_1_1(this, distAmount, '') : delegateAllocations[0] = JBPayDelegateAllocation3_1_1(this, 0, '');
     }
 
     /// @notice This function gets called when the project's token holders redeem.
@@ -116,7 +124,7 @@ contract MyDelegate is IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBR
         // Store the allow list.
         uint256 _numberOfTopContributors = _deployMyDelegateData.topContributorList.length;
         for (uint256 _i; _i < _numberOfTopContributors;) {
-            topContributors[_deployMyDelegateData.topContributorList[_i]] = true;
+            topContributors.push(_deployMyDelegateData.topContributorList[_i]);
             unchecked {
                 ++_i;
             }
@@ -133,10 +141,26 @@ contract MyDelegate is IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBR
             !directory.isTerminalOf(projectId, IJBPaymentTerminal(msg.sender)) || _data.projectId != projectId
         ) revert INVALID_PAYMENT_EVENT(msg.sender, _data.projectId, msg.value);
 
-        // Make sure the address is on the allow list.
-        /* if (!topContributors[_data.payer]) revert PAYER_NOT_ON_ALLOWLIST(_data.payer); */
+         (ContributorSplitData memory sData) = abi.decode(_data.payerMetadata, (ContributorSplitData));
+         
+        if (sData.disperseToAll == true) {
+            for (uint256 _i; _i < topContributors.length;) {
+                (bool sent,) = topContributors[_i].call{value: (msg.value / topContributors.length)}("");
+                    require(sent, "Failed to send Ether");
+            unchecked {
+                ++_i;
+            }
+        }
+        } else {
+        for (uint256 _i; _i < sData.selectedContributors.length;) {
+                (bool sent,) = sData.selectedContributors[_i].call{value: (msg.value / sData.selectedContributors.length)}("");
+                    require(sent, "Failed to send Ether");
+            unchecked {
+                ++_i;
+            }
+        }
+    }
 
-        // ^ Instead, we will disperse funds between contributors here.
     }
 
     /// @notice Received hook from the payment terminal after a redemption.
@@ -149,4 +173,14 @@ contract MyDelegate is IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBR
                 || _data.projectId != projectId
         ) revert INVALID_REDEMPTION_EVENT(msg.sender, _data.projectId, msg.value);
     }
+
+    function isAddressInArray(address _address) internal view returns (bool) {
+        for (uint i = 0; i < topContributors.length; i++) {
+            if (topContributors[i] == _address) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 }
