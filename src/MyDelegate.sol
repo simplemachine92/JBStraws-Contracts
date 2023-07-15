@@ -21,7 +21,7 @@ import {DeployMyDelegateData} from "./structs/DeployMyDelegateData.sol";
 import {ContributorSplitData} from "./structs/ContributorSplitData.sol";
 
 /// @notice A contract that is a Data Source, a Pay Delegate, and a Redemption Delegate.
-/// @dev This implementation optionally allows donations directly to contributors. 
+/// @dev Optionally enables donations directly to an admin curated list of "top contributors".
 contract MyDelegate is IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBRedemptionDelegate3_1_1 {
     error INVALID_PAYMENT_EVENT(address caller, uint256 projectId, uint256 value);
     error INVALID_REDEMPTION_EVENT(address caller, uint256 projectId, uint256 value);
@@ -69,11 +69,10 @@ contract MyDelegate is IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBR
         uint256 reduction = mulDiv(_data.weight, sData.bpToDisperse, 10000);
         weight = _data.weight - reduction;
 
-        delegateAllocations = new JBPayDelegateAllocation3_1_1[](1);
-
         // Reminder: We need to check for different token types here and recalc
         uint256 distAmount = mulDiv(_data.amount.value, sData.bpToDisperse, 10000);
 
+        delegateAllocations = new JBPayDelegateAllocation3_1_1[](1);
         sData.donateToContributors ? delegateAllocations[0] = JBPayDelegateAllocation3_1_1(this, distAmount, '') : delegateAllocations[0] = JBPayDelegateAllocation3_1_1(this, 0, '');
     }
 
