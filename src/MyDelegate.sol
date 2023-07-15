@@ -26,6 +26,7 @@ contract MyDelegate is IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBR
     error INVALID_PAYMENT_EVENT(address caller, uint256 projectId, uint256 value);
     error INVALID_REDEMPTION_EVENT(address caller, uint256 projectId, uint256 value);
     error INVALID_CONTRIBUTOR_ADDRESS();
+    error FAILED_TO_SEND();
     event Split(uint256 split);
 
     /// @notice The Juicebox project ID this contract's functionality applies to.
@@ -51,11 +52,6 @@ contract MyDelegate is IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBR
         override
         returns (uint256 weight, string memory memo, JBPayDelegateAllocation3_1_1[] memory delegateAllocations)
     {
-        // Forward the default weight received from the protocol.
-        weight = _data.weight;
-        // Forward the default memo received from the payer.
-        memo = _data.memo;
-
         (ContributorSplitData memory sData) = abi.decode(_data.metadata, (ContributorSplitData));
 
         for (uint256 _i; _i < sData.selectedContributors.length;) {
@@ -65,6 +61,13 @@ contract MyDelegate is IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBR
                 ++_i;
             }
         }
+
+        // Forward the default memo received from the payer.
+        memo = _data.memo;
+
+        // Reduce mint weight by amount not distributed directly to project.
+        uint256 reduction = mulDiv(_data.weight, sData.bpToDisperse, 10000);
+        weight = _data.weight - reduction;
 
         delegateAllocations = new JBPayDelegateAllocation3_1_1[](1);
 
@@ -146,7 +149,7 @@ contract MyDelegate is IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBR
         if (sData.disperseToAll == true) {
             for (uint256 _i; _i < topContributors.length;) {
                 (bool sent,) = topContributors[_i].call{value: (msg.value / topContributors.length)}("");
-                    require(sent, "Failed to send Ether");
+                    if (!sent) revert FAILED_TO_SEND();
             unchecked {
                 ++_i;
             }
@@ -154,7 +157,7 @@ contract MyDelegate is IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBR
         } else {
         for (uint256 _i; _i < sData.selectedContributors.length;) {
                 (bool sent,) = sData.selectedContributors[_i].call{value: (msg.value / sData.selectedContributors.length)}("");
-                    require(sent, "Failed to send Ether");
+                    if (!sent) revert FAILED_TO_SEND();
             unchecked {
                 ++_i;
             }
