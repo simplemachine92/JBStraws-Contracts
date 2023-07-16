@@ -45,6 +45,8 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
     // Used in JBFundingCycleData
     uint256 weight = 10 ** 18; // Minting 1 token per eth
 
+    bytes32 tRoot = 0x8c75dba8a88128d704ddaed374ea9725f1af294d2ad197de1218f966882e2256;
+
     function setUp() public override {
         // Provides us with _jbOperatorStore and _jbETHPaymentTerminal
         super.setUp();
@@ -61,6 +63,7 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
         delegatesRegistry = new JBDelegatesRegistry(IJBDelegatesRegistry(address(0)));
 
         // Instance of our delegate code
+        vm.prank(address(123));
         _delegateImpl = new MyDelegate();
 
         // Required for our custom project deployer below, eventually attaches the delegate to the funding cycle.
@@ -68,7 +71,6 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
 
         // Custom deployer
         projectDepl = new MyDelegateProjectDeployer(_delegateDepl, _jbOperatorStore);
-
 
         // The following describes the funding cycle, access constraints, and metadata necessary for our project.
         _data = JBFundingCycleData({
@@ -128,7 +130,8 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
 
         // The imported struct used by our delegate
         delegateData = DeployMyDelegateData({
-            topContributorList: aList
+            initialOwner: address(123),
+            allowedRoot: tRoot
         });
 
         // Assemble all of our previous configuration for our project deployer
@@ -154,7 +157,28 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
 
     }
 
-    function test_PaymentForAllContributorsSplit() public {
+    function test_Ownership() public {
+
+        vm.prank(address(projectDepl));
+        (bool success, bytes memory data) = address(0xCDfc4483dfC62f9072de6b740b996EB0E295A467).call(
+            abi.encodeWithSignature("owner"));
+
+        assertTrue(success);
+        
+
+        /* _jbETHPaymentTerminal.pay{value: 1 ether}(
+            1,
+            1 ether,
+            address(0),
+            _beneficiary,
+            0,
+            false,
+            "Take my money!",
+            ""
+        ); */
+    }
+
+    /* function test_PaymentForAllContributorsSplit() public {
         address[] memory aList = new address[](4);
         aList[0] = address(123);
         aList[1] = address(1234);
@@ -178,13 +202,9 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
             1 ether,
             address(0),
             _beneficiary,
-            /* _minReturnedTokens */
             0,
-            /* _preferClaimedTokens */
             false,
-            /* _memo */
             "Take my money!",
-            /* _delegateMetadata */
             metadata
         );
 
@@ -195,180 +215,6 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
         
         // Check if contributors received eth
         assertEq(address(1234).balance, (distAmount / aList.length));
-    }
-
-    function testFuzz_PaymentForAllContributorsSplit(uint128 amount) public {
-        // Assumes nobody can access more than 340282366920938463463.374607431768211455 ether
-
-        address[] memory aList = new address[](4);
-        aList[0] = address(123);
-        aList[1] = address(1234);
-        aList[2] = address(12345);
-        aList[3] = address(123456);
-
-        ContributorSplitData memory splitCallData = ContributorSplitData({
-            donateToContributors: true,
-            disperseToAll: true,
-            bpToDisperse: 2500,
-            selectedContributors: aList
-        });
-
-        // The last uint in this data denotes how much to distribute to the top contributors.
-        bytes memory metadata = abi.encode(splitCallData);
-
-        vm.deal(address(123), amount);
-        vm.prank(address(123));
-        _jbETHPaymentTerminal.pay{value: amount}(
-            1,
-            amount,
-            address(0),
-            _beneficiary,
-            /* _minReturnedTokens */
-            0,
-            /* _preferClaimedTokens */
-            false,
-            /* _memo */
-            "Take my money!",
-            /* _delegateMetadata */
-            metadata
-        );
-
-        uint256 distAmount = PRBMath.mulDiv(amount, 2500, 10000);
-
-        // Check that ETH payment was split correctly between terminal and delegate
-        assertEq(address(_jbETHPaymentTerminal).balance, (amount - distAmount));
-
-        // Check if contributors received eth
-        assertEq(address(1234).balance, (distAmount / aList.length));
-    }
-
-    function test_PaymentForSelectContributorsAddressSplit() public {
-        // Just a few addresses this time
-        address[] memory aList = new address[](2);
-        aList[0] = address(123);
-        aList[1] = address(1234);
-
-        ContributorSplitData memory splitCallData = ContributorSplitData({
-            donateToContributors: true,
-            disperseToAll: false,
-            bpToDisperse: 5000,
-            selectedContributors: aList
-        });
-
-        // The last uint in this data denotes how much to distribute to the top contributors.
-        bytes memory metadata = abi.encode(splitCallData);
-
-        vm.deal(address(123), 1 ether);
-        vm.prank(address(123));
-        _jbETHPaymentTerminal.pay{value: 1 ether}(
-            1,
-            1 ether,
-            address(0),
-            _beneficiary,
-            /* _minReturnedTokens */
-            0,
-            /* _preferClaimedTokens */
-            false,
-            /* _memo */
-            "Take my money!",
-            /* _delegateMetadata */
-            metadata
-        );
-
-        uint256 distAmount = PRBMath.mulDiv(1 ether, 5000, 10000);
-
-        // Check that ETH payment was split correctly between terminal and delegate
-        assertEq(address(_jbETHPaymentTerminal).balance, .5 ether);
-        
-        // Check if contributors received eth
-        assertEq(address(1234).balance, (distAmount / aList.length));
-    }
-
-    function testFuzz_PaymentForSelectContributorsAddressSplit(uint128 amount, uint16 bp) public {
-        vm.assume(bp <= 10000 && bp >= 1000);
-        vm.assume(amount >= 1 ether && amount <= 10 ether);
-
-        // Just a few addresses this time
-        address[] memory aList = new address[](2);
-        aList[0] = address(123);
-        aList[1] = address(1234);
-
-        ContributorSplitData memory splitCallData = ContributorSplitData({
-            donateToContributors: true,
-            disperseToAll: false,
-            bpToDisperse: bp,
-            selectedContributors: aList
-        });
-
-        bytes memory metadata = abi.encode(splitCallData);
-
-        vm.deal(address(123), amount);
-        vm.prank(address(123));
-        _jbETHPaymentTerminal.pay{value: amount}(
-            1,
-            amount,
-            address(0),
-            _beneficiary,
-            /* _minReturnedTokens */
-            0,
-            /* _preferClaimedTokens */
-            false,
-            /* _memo */
-            "Take my money!",
-            /* _delegateMetadata */
-            metadata
-        );
-
-        uint256 distAmount = PRBMath.mulDiv(amount, bp, 10000);
-
-        // Check that ETH payment was split correctly between terminal and delegate
-        assertEq(address(_jbETHPaymentTerminal).balance, amount - distAmount);
-        
-        // Check if contributors received eth
-        assertEq(address(1234).balance, (distAmount / aList.length));
-    }
-
-    function testFail_PaymentForInvalidContributorsAddressSplit() public {
-        address[] memory aList = new address[](4);
-        aList[0] = address(129);
-        aList[1] = address(1236);
-        aList[2] = address(12344);
-        aList[3] = address(123455);
-
-        ContributorSplitData memory splitCallData = ContributorSplitData({
-            donateToContributors: true,
-            disperseToAll: true,
-            bpToDisperse: 2500,
-            selectedContributors: aList
-        });
-
-        // The last uint in this data denotes how much to distribute to the top contributors.
-        bytes memory metadata = abi.encode(splitCallData);
-
-        vm.deal(address(123), 1 ether);
-        vm.prank(address(123));
-        _jbETHPaymentTerminal.pay{value: 1 ether}(
-            1,
-            1 ether,
-            address(0),
-            _beneficiary,
-            /* _minReturnedTokens */
-            0,
-            /* _preferClaimedTokens */
-            false,
-            /* _memo */
-            "Take my money!",
-            /* _delegateMetadata */
-            metadata
-        );
-
-        uint256 distAmount = PRBMath.mulDiv(1 ether, 2500, 10000);
-
-        // Check that ETH payment was split correctly between terminal and delegate
-        assertEq(address(_jbETHPaymentTerminal).balance, .75 ether);
-        
-        // Check if contributors received eth
-        assertEq(address(1234).balance, (distAmount / aList.length));
-    }
+    } */
 
 }
