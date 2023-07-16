@@ -29,11 +29,8 @@ import {ContributorSplitData} from "./structs/ContributorSplitData.sol";
 contract MyDelegate is JBOperatable, IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBRedemptionDelegate3_1_1 {
     error INVALID_PAYMENT_EVENT(address caller, uint256 projectId, uint256 value);
     error INVALID_REDEMPTION_EVENT(address caller, uint256 projectId, uint256 value);
-    error INVALID_CONTRIBUTOR_ADDRESS();
-    error FAILED_TO_SEND();
-    event Split(uint256 split);
 
-    bytes32 private root;
+    bytes32 public root;
 
     /// @notice The Juicebox project ID this contract's functionality applies to.
     uint256 public projectId;
@@ -141,8 +138,9 @@ contract MyDelegate is JBOperatable, IJBFundingCycleDataSource3_1_1, IJBPayDeleg
         ) revert INVALID_REDEMPTION_EVENT(msg.sender, _data.projectId, msg.value);
     }
 
-    function setRoot(bytes32 _root) external 
-    requirePermission(_controller.projects().ownerOf(projectId), projectId, JBOperations.RECONFIGURE) {
+    function setRoot(bytes32 _root)
+        external requirePermission(_controller.projects().ownerOf(projectId), projectId, JBOperations.RECONFIGURE)
+    {
         root = _root;
     }
 

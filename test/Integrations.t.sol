@@ -169,13 +169,15 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
     } */
 
     function test_SetRootByOwner() public {
+        // Check for initial root
+        assertEq(_straws.root(), 0x8c75dba8a88128d704ddaed374ea9725f1af294d2ad197de1218f966882e2256);
 
+        // Set root with admin
         vm.prank(address(123));
         _straws.setRoot(bytes32(""));
-       
-       /*  (, JBFundingCycleMetadata memory metadata, ) = _jbController.latestConfiguredFundingCycleOf(1);
-       emit log_address(metadata.dataSource); */
-       
+
+        // Make sure it was modified
+        assertEq(_straws.root(), "");
     }
 
     /* function test_PayHook() public {

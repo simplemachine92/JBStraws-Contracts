@@ -91,6 +91,7 @@ interface IStrawDelegate {
     function initialize(uint256 _projectId, address _directory, DeployMyDelegateData memory _deployMyDelegateData)
         external;
     function owner() external view returns (address);
+    function root() external view returns (bytes32);
     function payParams(JBPayParamsData memory _data)
         external
         view
