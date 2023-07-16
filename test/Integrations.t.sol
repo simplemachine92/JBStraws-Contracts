@@ -251,7 +251,7 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
         );
     }
 
-    function testFail_PayHookAndVerifyAllowed() public {
+    function testFail_PayHookWhitelistEnabledWrongProof() public {
         vm.prank(address(123));
         _straws.togglewhitelistEnabled();
 
@@ -268,8 +268,8 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
         bytes32[] memory proof = _m.getProof(data, 0); // will get proof for 0x2 value
         bool verified = _m.verifyProof(root, proof, data[0]); // true!
 
-        vm.deal(address(129), 1 ether);
-        vm.prank(address(129));
+        vm.deal(address(123456), 1 ether);
+        vm.prank(address(123456));
         _jbETHPaymentTerminal.pay{value: 1 ether}(
             1,
             1 ether,
@@ -283,10 +283,6 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
     }
 
     function test_PayHookNotAllowedWhitelistDisabled() public {
-        // Should pass because no whitelist.. first disable it
-        /* vm.prank(address(123));
-        _straws.togglewhitelistEnabled(); */
-
         assertEq(_straws.whitelistEnabled(), false);
 
         bytes32[] memory data = new bytes32[](4);
@@ -314,44 +310,5 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
             abi.encode(proof)
         );
     }
-
-    /* function test_PaymentForAllContributorsSplit() public {
-        address[] memory aList = new address[](4);
-        aList[0] = address(123);
-        aList[1] = address(1234);
-        aList[2] = address(12345);
-        aList[3] = address(123456);
-
-        ContributorSplitData memory splitCallData = ContributorSplitData({
-            donateToContributors: true,
-            disperseToAll: true,
-            bpToDisperse: 2500,
-            selectedContributors: aList
-        });
-
-        // The last uint in this data denotes how much to distribute to the top contributors.
-        bytes memory metadata = abi.encode(splitCallData);
-
-        vm.deal(address(123), 1 ether);
-        vm.prank(address(123));
-        _jbETHPaymentTerminal.pay{value: 1 ether}(
-            1,
-            1 ether,
-            address(0),
-            _beneficiary,
-            0,
-            false,
-            "Take my money!",
-            metadata
-        );
-
-        uint256 distAmount = PRBMath.mulDiv(1 ether, 2500, 10000);
-
-        // Check that ETH payment was split correctly between terminal and delegate
-        assertEq(address(_jbETHPaymentTerminal).balance, .75 ether);
-        
-        // Check if contributors received eth
-        assertEq(address(1234).balance, (distAmount / aList.length));
-    } */
 
 }
