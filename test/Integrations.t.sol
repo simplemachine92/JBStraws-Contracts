@@ -16,8 +16,8 @@ import {IJBDelegatesRegistry} from "@jbx-protocol/juice-delegates-registry/src/i
 import {IJBFundingCycleBallot} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBFundingCycleBallot.sol";
 import {JBGlobalFundingCycleMetadata} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBFundingCycleMetadata.sol";
 import {MyDelegateDeployer} from "./../src/MyDelegateDeployer.sol";
-import {ContributorSplitData} from "../src/structs/ContributorSplitData.sol";
 import {IStrawDelegate} from "../src/interfaces/IStrawDelegate.sol";
+import {Merkle} from "murky/Merkle.sol";
 
 // Inherits from "./helpers/TestBaseWorkflowV3.sol", called by super.setUp()
 contract MyDelegateTest_Int is TestBaseWorkflowV3 {
@@ -30,6 +30,7 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
     JBFundAccessConstraints[] _fundAccessConstraints; // Default empty
     IJBPaymentTerminal[] _terminals; // Default empty
     IStrawDelegate _straws;
+    Merkle _m;
 
     // Delegate setup params
     JBDelegatesRegistry delegatesRegistry;
@@ -47,11 +48,30 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
     // Used in JBFundingCycleData
     uint256 weight = 10 ** 18; // Minting 1 token per eth
 
-    bytes32 tRoot = 0x8c75dba8a88128d704ddaed374ea9725f1af294d2ad197de1218f966882e2256;
+    bytes32 tRoot;
 
     function setUp() public override {
         // Provides us with _jbOperatorStore and _jbETHPaymentTerminal
         super.setUp();
+
+        // Initialize
+        Merkle m = new Merkle();
+        _m = m;
+        
+        // Toy Data
+        bytes32[] memory data = new bytes32[](4);
+        data[0] = bytes32(uint256(uint160(address(123))));
+        data[1] = bytes32(uint256(uint160(address(1234))));
+        data[2] = bytes32(uint256(uint160(address(12345))));
+        data[3] = bytes32(uint256(uint160(address(123456))));
+
+        // Get Root, Proof, and Verify
+        bytes32 root = m.getRoot(data);
+        bytes32[] memory proof = m.getProof(data, 2); // will get proof for 0x2 value
+        bool verified = m.verifyProof(root, proof, data[2]); // true!
+        assertTrue(verified);
+
+        tRoot = root;
 
         /* 
         This setup follows a DelegateProjectDeployer pattern like in https://docs.juicebox.money/dev/extensions/juice-721-delegate/
@@ -122,16 +142,8 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
 
         JBGroupedSplits[] memory _groupedSplits = new JBGroupedSplits[](1); // Default empty
 
-        // Our delegate adds a top contributor donation option, create a mock list of one address for testing.
-        address[] memory aList = new address[](4);
-        aList[0] = address(123);
-        aList[1] = address(1234);
-        aList[2] = address(12345);
-        aList[3] = address(123456);
-
         // The imported struct used by our delegate
         delegateData = DeployMyDelegateData({
-            initialOwner: address(123),
             allowedRoot: tRoot
         });
 
@@ -149,6 +161,7 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
 
 
         // Blastoff
+        vm.prank(address(123));
         _projectId = projectDepl.launchProjectFor(
             address(123),
             delegateData,
@@ -161,16 +174,27 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
         vm.label(metadata.dataSource, "Initialized DS");
 
         _straws = IStrawDelegate(metadata.dataSource);
-
     }
 
-    /* function test_Ownership() public {
-        assertEq(address(123), _delegateImpl.owner());
-    } */
+    function test_VerifyProof() public {
+        // Toy Data
+        bytes32[] memory data = new bytes32[](4);
+        data[0] = bytes32(uint256(uint160(address(123))));
+        data[1] = bytes32(uint256(uint160(address(1234))));
+        data[2] = bytes32(uint256(uint160(address(12345))));
+        data[3] = bytes32(uint256(uint160(address(123456))));
+
+        // Get Root, Proof, and Verify
+        bytes32 root = _m.getRoot(data);
+        bytes32[] memory proof = _m.getProof(data, 2); // will get proof for 0x2 value
+        bool verified = _m.verifyProof(root, proof, data[2]); // true!
+
+        _straws.verify(proof, address(12345));
+    }
 
     function test_SetRootByOwner() public {
         // Check for initial root
-        assertEq(_straws.root(), 0x8c75dba8a88128d704ddaed374ea9725f1af294d2ad197de1218f966882e2256);
+        assertEq(_straws.root(), 0xa9273ce1e6b4ac4eb3d07f01103d44e3778747536780332f977c5915415fd7db);
 
         // Set root with admin
         vm.prank(address(123));
@@ -180,7 +204,39 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
         assertEq(_straws.root(), "");
     }
 
-    /* function test_PayHook() public {
+    function testFail_SetRootByNonOwner() public {
+        // Check for initial root
+        assertEq(_straws.root(), 0xa9273ce1e6b4ac4eb3d07f01103d44e3778747536780332f977c5915415fd7db);
+
+        // Set root with admin
+        vm.prank(address(124));
+        _straws.setRoot(bytes32(""));
+
+        // Make sure it was modified
+        assertEq(_straws.root(), "");
+    }
+
+    function test_toggleWhiteListAndTestPay() public {
+
+    }
+
+    function test_PayHookAndVerifyAllowed() public {
+        vm.prank(address(123));
+        _straws.togglewhitelistEnabled();
+
+        // Toy Data
+        bytes32[] memory data = new bytes32[](4);
+
+        data[0] = bytes32(uint256(uint160(address(123))));
+        data[1] = bytes32(uint256(uint160(address(1234))));
+        data[2] = bytes32(uint256(uint160(address(12345))));
+        data[3] = bytes32(uint256(uint160(address(123456))));
+
+        // Get Root, Proof, and Verify
+        bytes32 root = _m.getRoot(data);
+        bytes32[] memory proof = _m.getProof(data, 0); // will get proof for 0x2 value
+        bool verified = _m.verifyProof(root, proof, data[0]); // true!
+
         vm.deal(address(123), 1 ether);
         vm.prank(address(123));
         _jbETHPaymentTerminal.pay{value: 1 ether}(
@@ -191,9 +247,73 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
             0,
             false,
             "Take my money!",
-            ""
+            abi.encode(proof)
         );
-    } */
+    }
+
+    function testFail_PayHookAndVerifyAllowed() public {
+        vm.prank(address(123));
+        _straws.togglewhitelistEnabled();
+
+        // Toy Data
+        bytes32[] memory data = new bytes32[](4);
+
+        data[0] = bytes32(uint256(uint160(address(123))));
+        data[1] = bytes32(uint256(uint160(address(1234))));
+        data[2] = bytes32(uint256(uint160(address(12345))));
+        data[3] = bytes32(uint256(uint160(address(123456))));
+
+        // Get Root, Proof, and Verify
+        bytes32 root = _m.getRoot(data);
+        bytes32[] memory proof = _m.getProof(data, 0); // will get proof for 0x2 value
+        bool verified = _m.verifyProof(root, proof, data[0]); // true!
+
+        vm.deal(address(129), 1 ether);
+        vm.prank(address(129));
+        _jbETHPaymentTerminal.pay{value: 1 ether}(
+            1,
+            1 ether,
+            address(0),
+            _multisig,
+            0,
+            false,
+            "Take my money!",
+            abi.encode(proof)
+        );
+    }
+
+    function test_PayHookNotAllowedWhitelistDisabled() public {
+        // Should pass because no whitelist.. first disable it
+        /* vm.prank(address(123));
+        _straws.togglewhitelistEnabled(); */
+
+        assertEq(_straws.whitelistEnabled(), false);
+
+        bytes32[] memory data = new bytes32[](4);
+
+        data[0] = bytes32(uint256(uint160(address(123))));
+        data[1] = bytes32(uint256(uint160(address(1234))));
+        data[2] = bytes32(uint256(uint160(address(12345))));
+        data[3] = bytes32(uint256(uint160(address(123456))));
+
+        // Get Root, Proof, and Verify
+        bytes32 root = _m.getRoot(data);
+        bytes32[] memory proof = _m.getProof(data, 0); // will get proof for 0x2 value
+        bool verified = _m.verifyProof(root, proof, data[0]); // true!
+
+        vm.deal(address(129), 1 ether);
+        vm.prank(address(129));
+        _jbETHPaymentTerminal.pay{value: 1 ether}(
+            1,
+            1 ether,
+            address(0),
+            _multisig,
+            0,
+            false,
+            "Take my money!",
+            abi.encode(proof)
+        );
+    }
 
     /* function test_PaymentForAllContributorsSplit() public {
         address[] memory aList = new address[](4);

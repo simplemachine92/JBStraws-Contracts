@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {mulDiv} from '@prb/math/src/Common.sol';
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {JBOperatable} from "@jbx-protocol/juice-contracts-v3/contracts/abstract/JBOperatable.sol";
 import {JBOperations} from "@jbx-protocol/juice-contracts-v3/contracts/libraries/JBOperations.sol";
@@ -15,7 +13,6 @@ import {IJBFundingCycleDataSource3_1_1} from
     "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBFundingCycleDataSource3_1_1.sol";
 import {IJBPaymentTerminal} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBPaymentTerminal.sol";
 import {JBPayParamsData} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBPayParamsData.sol";
-import {JBTokenAmount} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBTokenAmount.sol";
 import {JBDidPayData3_1_1} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBDidPayData3_1_1.sol";
 import {JBDidRedeemData3_1_1} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBDidRedeemData3_1_1.sol";
 import {JBRedeemParamsData} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBRedeemParamsData.sol";
@@ -23,7 +20,7 @@ import {JBPayDelegateAllocation3_1_1} from "@jbx-protocol/juice-contracts-v3/con
 import {JBRedemptionDelegateAllocation3_1_1} from
     "@jbx-protocol/juice-contracts-v3/contracts/structs/JBRedemptionDelegateAllocation3_1_1.sol";
 import {DeployMyDelegateData} from "./structs/DeployMyDelegateData.sol";
-import {ContributorSplitData} from "./structs/ContributorSplitData.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 /// @notice A contract that is a Data Source, a Pay Delegate, and a Redemption Delegate.
 contract MyDelegate is JBOperatable, IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBRedemptionDelegate3_1_1 {
@@ -32,6 +29,8 @@ contract MyDelegate is JBOperatable, IJBFundingCycleDataSource3_1_1, IJBPayDeleg
 
     bytes32 public root;
 
+    bool public whitelistEnabled;
+
     /// @notice The Juicebox project ID this contract's functionality applies to.
     uint256 public projectId;
 
@@ -39,9 +38,6 @@ contract MyDelegate is JBOperatable, IJBFundingCycleDataSource3_1_1, IJBPayDeleg
     IJBDirectory public directory;
 
     IJBController3_1 private _controller;
-
-    /// @notice Addresses allowed to make payments to the treasury.
-    address[] public topContributors;
 
     /// @notice This function gets called when the project receives a payment.
     /// @dev Part of IJBFundingCycleDataSource.
@@ -57,10 +53,21 @@ contract MyDelegate is JBOperatable, IJBFundingCycleDataSource3_1_1, IJBPayDeleg
         override
         returns (uint256 weight, string memory memo, JBPayDelegateAllocation3_1_1[] memory delegateAllocations)
     {
+        bytes32[] memory proof = abi.decode(_data.metadata, (bytes32[]));
+
+        // Get original tx sender to check whitelist.
+        address payer = _data.payer;
+
+        if (whitelistEnabled) {
+        // Verify whitelisting proof and continue, or revert.
+        verify(proof, payer);
+        }
+        
         // Forward the default weight received from the protocol.
         weight = _data.weight;
         // Forward the default memo received from the payer.
         memo = _data.memo;
+
         // Add `this` contract as a Pay Delegate so that it receives a `didPay` call. Don't send any funds to the delegate (keep all funds in the treasury).
         delegateAllocations = new JBPayDelegateAllocation3_1_1[](1);
         delegateAllocations[0] = JBPayDelegateAllocation3_1_1(this, 0, '');
@@ -79,10 +86,21 @@ contract MyDelegate is JBOperatable, IJBFundingCycleDataSource3_1_1, IJBPayDeleg
         override
         returns (uint256 reclaimAmount, string memory memo, JBRedemptionDelegateAllocation3_1_1[] memory delegateAllocations)
     {
-        // Forward the default reclaimAmount received from the protocol.
+        bytes32[] memory proof = abi.decode(_data.metadata, (bytes32[]));
+
+        // Get original tx sender to check whitelist.
+        address holder = _data.holder;
+        
+        if (whitelistEnabled == true) {
+        // Verify whitelisting proof and continue, or revert.
+        verify(proof, holder);
+        }
+
+         // Forward the default reclaimAmount received from the protocol.
         reclaimAmount = _data.reclaimAmount.value;
         // Forward the default memo received from the redeemer.
         memo = _data.memo;
+
         // Add `this` contract as a Redeem Delegate so that it receives a `didRedeem` call. Don't send any extra funds to the delegate.
         delegateAllocations = new JBRedemptionDelegateAllocation3_1_1[](1);
         delegateAllocations[0] = JBRedemptionDelegateAllocation3_1_1(this, 0, '');
@@ -142,6 +160,24 @@ contract MyDelegate is JBOperatable, IJBFundingCycleDataSource3_1_1, IJBPayDeleg
         external requirePermission(_controller.projects().ownerOf(projectId), projectId, JBOperations.RECONFIGURE)
     {
         root = _root;
+    }
+
+    function togglewhitelistEnabled()
+        external requirePermission(_controller.projects().ownerOf(projectId), projectId, JBOperations.RECONFIGURE)
+    {
+        whitelistEnabled = !whitelistEnabled;
+    }
+
+    function verify(
+        bytes32[] memory proof,
+        address addr
+    ) public view returns (bool) {
+        // (2)
+        bytes32 leaf = bytes32(uint256(uint160(addr)));
+        // (3)
+        require(MerkleProof.verify(proof, root, leaf), "Not In Allow List");
+        // (4)
+        return true;
     }
 
 }
