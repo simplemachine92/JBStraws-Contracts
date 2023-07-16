@@ -42,7 +42,7 @@ contract MyDelegateProjectDeployer is JBOperatable {
 
         // Deploy the delegate contract.
         MyDelegate _delegate =
-            delegateDeployer.deployDelegateFor(projectId, _deployMyDelegateData, _controller.directory());
+            delegateDeployer.deployDelegateFor(projectId, _deployMyDelegateData, _controller.directory(), _controller);
 
         // Launch the project.
         _launchProjectFor(_owner, _launchProjectData, address(_delegate), _controller);
@@ -67,7 +67,7 @@ contract MyDelegateProjectDeployer is JBOperatable {
     {
         // Deploy the delegate contract.
         MyDelegate _delegate =
-            delegateDeployer.deployDelegateFor(_projectId, _deployMyDelegateData, _controller.directory());
+            delegateDeployer.deployDelegateFor(_projectId, _deployMyDelegateData, _controller.directory(), _controller);
 
         // Launch the funding cycles.
         return _launchFundingCyclesFor(_projectId, _launchFundingCyclesData, address(_delegate), _controller);
@@ -92,7 +92,7 @@ contract MyDelegateProjectDeployer is JBOperatable {
     {
         // Deploy the delegate contract.
         MyDelegate _delegate =
-            delegateDeployer.deployDelegateFor(_projectId, _deployMyDelegateData, _controller.directory());
+            delegateDeployer.deployDelegateFor(_projectId, _deployMyDelegateData, _controller.directory(), _controller);
 
         // Reconfigure the funding cycles.
         return _reconfigureFundingCyclesOf(_projectId, _reconfigureFundingCyclesData, address(_delegate), _controller);

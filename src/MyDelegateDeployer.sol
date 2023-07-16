@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {IJBDelegatesRegistry} from "@jbx-protocol/juice-delegates-registry/src/interfaces/IJBDelegatesRegistry.sol";
+import {IJBController3_1} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBController3_1.sol";
 import {IJBDirectory} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBDirectory.sol";
 import {DeployMyDelegateData} from "./structs/DeployMyDelegateData.sol";
 import {MyDelegate} from "./MyDelegate.sol";
@@ -35,13 +36,14 @@ contract MyDelegateDeployer {
     function deployDelegateFor(
         uint256 _projectId,
         DeployMyDelegateData memory _deployMyDelegateData,
-        IJBDirectory _directory
+        IJBDirectory _directory,
+        IJBController3_1 controller
     ) external returns (MyDelegate delegate) {
         // Deploy the delegate clone from the implementation.
         delegate = MyDelegate(Clones.clone(address(delegateImplementation)));
 
         // Initialize it.
-        delegate.initialize(_projectId, _directory, _deployMyDelegateData);
+        delegate.initialize(_projectId, _directory, _deployMyDelegateData, controller);
 
         // Add the delegate to the registry. Contract nonce starts at 1.
         delegatesRegistry.addDelegate(address(this), ++_nonce);

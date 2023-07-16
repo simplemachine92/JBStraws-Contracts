@@ -5,6 +5,8 @@ import {mulDiv} from '@prb/math/src/Common.sol';
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {JBOperatable} from "@jbx-protocol/juice-contracts-v3/contracts/abstract/JBOperatable.sol";
+import {JBOperations} from "@jbx-protocol/juice-contracts-v3/contracts/libraries/JBOperations.sol";
+import {IJBController3_1} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBController3_1.sol";
 import {IJBOperatorStore} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBOperatorStore.sol";
 import {IJBDirectory} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBDirectory.sol";
 import {IJBPayDelegate3_1_1} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBPayDelegate3_1_1.sol";
@@ -24,7 +26,7 @@ import {DeployMyDelegateData} from "./structs/DeployMyDelegateData.sol";
 import {ContributorSplitData} from "./structs/ContributorSplitData.sol";
 
 /// @notice A contract that is a Data Source, a Pay Delegate, and a Redemption Delegate.
-contract MyDelegate is Ownable, IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBRedemptionDelegate3_1_1 {
+contract MyDelegate is JBOperatable, IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_1_1, IJBRedemptionDelegate3_1_1 {
     error INVALID_PAYMENT_EVENT(address caller, uint256 projectId, uint256 value);
     error INVALID_REDEMPTION_EVENT(address caller, uint256 projectId, uint256 value);
     error INVALID_CONTRIBUTOR_ADDRESS();
@@ -38,6 +40,8 @@ contract MyDelegate is Ownable, IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_
 
     /// @notice The directory of terminals and controllers for projects.
     IJBDirectory public directory;
+
+    IJBController3_1 private _controller;
 
     /// @notice Addresses allowed to make payments to the treasury.
     address[] public topContributors;
@@ -95,13 +99,13 @@ contract MyDelegate is Ownable, IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_
         return _interfaceId == type(IJBFundingCycleDataSource3_1_1).interfaceId;
     }
 
-    constructor() {}
+    constructor(IJBOperatorStore _operatorStore) JBOperatable(_operatorStore) {}
 
     /// @notice Initializes the clone contract with project details and a directory from which ecosystem payment terminals and controller can be found.
     /// @param _projectId The ID of the project this contract's functionality applies to.
     /// @param _directory The directory of terminals and controllers for projects.
     /// @param _deployMyDelegateData Data necessary to deploy the delegate.
-    function initialize(uint256 _projectId, IJBDirectory _directory, DeployMyDelegateData memory _deployMyDelegateData)
+    function initialize(uint256 _projectId, IJBDirectory _directory, DeployMyDelegateData memory _deployMyDelegateData, IJBController3_1 controller)
         external
     {
         // Stop re-initialization.
@@ -112,6 +116,8 @@ contract MyDelegate is Ownable, IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_
         directory = _directory;
 
         root = _deployMyDelegateData.allowedRoot;
+
+        _controller = controller;
     }
 
     /// @notice Received hook from the payment terminal after a payment.
@@ -135,21 +141,9 @@ contract MyDelegate is Ownable, IJBFundingCycleDataSource3_1_1, IJBPayDelegate3_
         ) revert INVALID_REDEMPTION_EVENT(msg.sender, _data.projectId, msg.value);
     }
 
-    function isAddressInArray(address _address) internal view returns (bool) {
-        for (uint i = 0; i < topContributors.length; i++) {
-            if (topContributors[i] == _address) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function doesOwnerWork() external onlyOwner returns (bool) {
-        return true;
-    }
-
-    function setRoot(bytes32 _root) external {
-
+    function setRoot(bytes32 _root) external 
+    requirePermission(_controller.projects().ownerOf(projectId), projectId, JBOperations.RECONFIGURE) {
+        root = _root;
     }
 
 }

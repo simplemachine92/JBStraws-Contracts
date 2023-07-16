@@ -17,6 +17,7 @@ import {IJBFundingCycleBallot} from "@jbx-protocol/juice-contracts-v3/contracts/
 import {JBGlobalFundingCycleMetadata} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBFundingCycleMetadata.sol";
 import {MyDelegateDeployer} from "./../src/MyDelegateDeployer.sol";
 import {ContributorSplitData} from "../src/structs/ContributorSplitData.sol";
+import {IStrawDelegate} from "../src/interfaces/IStrawDelegate.sol";
 
 // Inherits from "./helpers/TestBaseWorkflowV3.sol", called by super.setUp()
 contract MyDelegateTest_Int is TestBaseWorkflowV3 {
@@ -28,6 +29,7 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
     JBFundingCycleMetadata _metadata;
     JBFundAccessConstraints[] _fundAccessConstraints; // Default empty
     IJBPaymentTerminal[] _terminals; // Default empty
+    IStrawDelegate _straws;
 
     // Delegate setup params
     JBDelegatesRegistry delegatesRegistry;
@@ -63,8 +65,7 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
         delegatesRegistry = new JBDelegatesRegistry(IJBDelegatesRegistry(address(0)));
 
         // Instance of our delegate code
-        vm.prank(address(123));
-        _delegateImpl = new MyDelegate();
+        _delegateImpl = new MyDelegate(_jbOperatorStore);
 
         // Required for our custom project deployer below, eventually attaches the delegate to the funding cycle.
         _delegateDepl = new MyDelegateDeployer(_delegateImpl, delegatesRegistry);
@@ -101,7 +102,7 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
             useTotalOverflowForRedemptions: false,
             useDataSourceForPay: true,
             useDataSourceForRedeem: false,
-            dataSource: address(0),
+            dataSource: address(_delegateImpl),
             metadata: 0
         });
 
@@ -155,28 +156,42 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
             _jbController
         );
 
+        (, JBFundingCycleMetadata memory metadata, ) = _jbController.latestConfiguredFundingCycleOf(1);
+
+        vm.label(metadata.dataSource, "Initialized DS");
+
+        _straws = IStrawDelegate(metadata.dataSource);
+
     }
 
-    function test_Ownership() public {
+    /* function test_Ownership() public {
+        assertEq(address(123), _delegateImpl.owner());
+    } */
 
-        vm.prank(address(projectDepl));
-        (bool success, bytes memory data) = address(0xCDfc4483dfC62f9072de6b740b996EB0E295A467).call(
-            abi.encodeWithSignature("owner"));
+    function test_SetRootByOwner() public {
 
-        assertTrue(success);
-        
+        vm.prank(address(123));
+        _straws.setRoot(bytes32(""));
+       
+       /*  (, JBFundingCycleMetadata memory metadata, ) = _jbController.latestConfiguredFundingCycleOf(1);
+       emit log_address(metadata.dataSource); */
+       
+    }
 
-        /* _jbETHPaymentTerminal.pay{value: 1 ether}(
+    /* function test_PayHook() public {
+        vm.deal(address(123), 1 ether);
+        vm.prank(address(123));
+        _jbETHPaymentTerminal.pay{value: 1 ether}(
             1,
             1 ether,
             address(0),
-            _beneficiary,
+            _multisig,
             0,
             false,
             "Take my money!",
             ""
-        ); */
-    }
+        );
+    } */
 
     /* function test_PaymentForAllContributorsSplit() public {
         address[] memory aList = new address[](4);
