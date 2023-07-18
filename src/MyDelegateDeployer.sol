@@ -46,7 +46,7 @@ contract MyDelegateDeployer {
         delegate.initialize(_projectId, _directory, _deployMyDelegateData, controller);
 
         // Add the delegate to the registry. Contract nonce starts at 1.
-        /* delegatesRegistry.addDelegate(address(this), ++_nonce); */
+        delegatesRegistry.addDelegate(address(this), ++_nonce);
 
         emit DelegateDeployed(_projectId, delegate, _directory, msg.sender);
     }

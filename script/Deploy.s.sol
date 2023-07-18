@@ -2,6 +2,7 @@
 pragma solidity ^0.8.17;
 
 import "forge-std/Script.sol";
+import "forge-std/Test.sol";
 import {IJBDelegatesRegistry} from "@jbx-protocol/juice-delegates-registry/src/interfaces/IJBDelegatesRegistry.sol";
 import {IJBOperatorStore} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBOperatorStore.sol";
 import {MyDelegate} from "./../src/MyDelegate.sol";
@@ -51,15 +52,15 @@ contract AccessJBLib {
     }
 }
 
-abstract contract Deploy is Script {
+abstract contract Deploy is Script, Test {
 
     // Project setup params
     JBProjectMetadata _projectMetadata;
     JBFundingCycleData _data;
     JBFundingCycleMetadata _metadata;
     JBFundAccessConstraints[] _fundAccessConstraints; // Default empty
-    JBETHPaymentTerminal3_1_1 _jbETHPaymentTerminal = JBETHPaymentTerminal3_1_1(0xFA391De95Fcbcd3157268B91d8c7af083E607A5C);
-    JBController3_1 _jbController = JBController3_1(0x97a5b9D9F0F7cD676B69f584F29048D0Ef4BB59b);
+    JBETHPaymentTerminal3_1_1 _jbETHPaymentTerminal = JBETHPaymentTerminal3_1_1(0x82129d4109625F94582bDdF6101a8Cd1a27919f5);
+    JBController3_1 _jbController = JBController3_1(0x1d260DE91233e650F136Bf35f8A4ea1F2b68aDB6);
     IStrawDelegate _straws;
     Merkle _m;
     AccessJBLib internal _accessJBLib;
@@ -169,9 +170,8 @@ abstract contract Deploy is Script {
 
 
         // Blastoff
-        /* vm.prank(address(123)); */
         _projectId = projectDepl.launchProjectFor(
-            address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266),
+            address(0x55A178b6AfB3879F4a16c239A9F528663e7d76b3),
             delegateData,
             launchProjectData,
             _jbController
@@ -181,12 +181,15 @@ abstract contract Deploy is Script {
 
         (, JBFundingCycleMetadata memory metadata, ) = _jbController.latestConfiguredFundingCycleOf(_projectId);
 
+
+        emit log_uint(_projectId);
+        emit log_address(metadata.dataSource);
     }
 }
 
 contract DeployMainnet is Deploy {
     IJBOperatorStore _operatorStore = IJBOperatorStore(0x6F3C5afCa0c9eDf3926eF2dDF17c8ae6391afEfb);
-    IJBDelegatesRegistry _registry = IJBDelegatesRegistry(0x7A53cAA1dC4d752CAD283d039501c0Ee45719FaC);
+    IJBDelegatesRegistry _registry = IJBDelegatesRegistry(0x33265D9eaD1291FAA981a177278dF8053aF24221);
 
     function run() public {
         _run(_operatorStore, _registry);
@@ -195,7 +198,7 @@ contract DeployMainnet is Deploy {
 
 contract DeployFork is Deploy {
     IJBOperatorStore _operatorStore = IJBOperatorStore(0x6F3C5afCa0c9eDf3926eF2dDF17c8ae6391afEfb);
-    IJBDelegatesRegistry _registry = IJBDelegatesRegistry(0x7A53cAA1dC4d752CAD283d039501c0Ee45719FaC);
+    IJBDelegatesRegistry _registry = IJBDelegatesRegistry(0x33265D9eaD1291FAA981a177278dF8053aF24221);
 
     function run() public {
         _run(_operatorStore, _registry);
@@ -204,7 +207,7 @@ contract DeployFork is Deploy {
 
 contract DeployGoerli is Deploy {
     IJBOperatorStore _operatorStore = IJBOperatorStore(0x99dB6b517683237dE9C494bbd17861f3608F3585);
-    IJBDelegatesRegistry _registry = IJBDelegatesRegistry(0xCe3Ebe8A7339D1f7703bAF363d26cD2b15D23C23);
+    IJBDelegatesRegistry _registry = IJBDelegatesRegistry(0x4BdB4170056dd9530747D9B3338D75f4535eBcDB);
 
     function setUp() public {}
 

@@ -21,6 +21,7 @@ import {Merkle} from "murky/Merkle.sol";
 
 // Inherits from "./helpers/TestBaseWorkflowV3.sol", called by super.setUp()
 contract MyDelegateTest_Int is TestBaseWorkflowV3 {
+    event Proof(bytes32[]);
     using JBFundingCycleMetadataResolver for JBFundingCycle;
 
     // Project setup params
@@ -176,20 +177,32 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
         _straws = IStrawDelegate(metadata.dataSource);
     }
 
-    function test_VerifyProof() public {
+    function test_getRoot() public {
         // Toy Data
         bytes32[] memory data = new bytes32[](4);
-        data[0] = bytes32(uint256(uint160(address(123))));
+        data[0] = bytes32(uint256(uint160(address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266))));
         data[1] = bytes32(uint256(uint160(address(1234))));
         data[2] = bytes32(uint256(uint160(address(12345))));
         data[3] = bytes32(uint256(uint160(address(123456))));
 
+        
+
         // Get Root, Proof, and Verify
         bytes32 root = _m.getRoot(data);
-        bytes32[] memory proof = _m.getProof(data, 2); // will get proof for 0x2 value
-        bool verified = _m.verifyProof(root, proof, data[2]); // true!
+        bytes32[] memory proof = _m.getProof(data, 0); // will get proof for 0x0 value
+        bool verified = _m.verifyProof(root, proof, data[0]); // true!
 
-        _straws.verify(proof, address(12345));
+        vm.prank(address(123));
+        _straws.setRoot(root);
+
+        emit log_bytes32(root);
+        emit Proof(proof);
+        emit log_bytes(abi.encode(proof));
+        emit log_address(address(1234));
+        emit log_address(address(12345));
+        emit log_address(address(123456));
+
+        _straws.verify(proof, address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266));
     }
 
     function test_SetRootByOwner() public {
@@ -214,10 +227,6 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
 
         // Make sure it was modified
         assertEq(_straws.root(), "");
-    }
-
-    function test_toggleWhiteListAndTestPay() public {
-
     }
 
     function test_PayHookAndVerifyAllowed() public {
