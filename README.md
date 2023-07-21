@@ -1,11 +1,10 @@
-# juice-delegate-template
-Template used to code juicy solidity Delegate stuff - includes forge, libs, etc. 
+# Juicebox Straws (Merkle Root Whitelist) Data Source
+This treasury extension enables Merkle Proof whitelists for your JB Project. There is a Pay whitelist and a Redeem whitelist that carry separate roots for verification, and each can be toggled on or off independently. Project Owners or permissioned Project Operators control these parameters via JBOperatable.
 
-This template is a good starting point for building solidity Delegate extensions to the Juicebox Protocol. Delegates define pockets of code that get called when a project receives payments and when token holders attempt to reclaim funds from a project. Forking this template may help you to avoid submodule related dependency issues down the road.
+This was my personal submission for the [Juicebox / BuildGuidl Hackathon](https://docs.juicebox.money/delegate-hackathon/). You can find the accompanying front end [Here](https://github.com/simplemachine92/JBStraws-Interface).
 
-Do not push straight on main, rather create a new branch and open a PR - your reviewer will love you for this.
-
-This repo includes an example delegate as well as utilites for deploying or reconfiguring a project that uses the delegate.
+# For Buidlers
+Tests in Integrations.t.sol validate the added functionality of JBStraws. These tests inherit from TestBaseWorkflow which setup much of the mock infra required for testing [Credit: DrGorilla and Viraz](https://github.com/jbx-protocol/juice-buyback).
 
 # Getting started
 ## Prerequisites
