@@ -118,7 +118,7 @@ contract JBStraws is JBOperatable, IJBFundingCycleDataSource3_1_1 {
         // Get original tx sender to check whitelist.
         address holder = _data.holder;
         
-        if (redeemWhitelistEnabled == true) {
+        if (redeemWhitelistEnabled) {
         // Verify whitelisting proof and continue, or revert.
         verify(proof, false, holder);
         }
