@@ -20,11 +20,11 @@ import {JBRedeemParamsData} from "@jbx-protocol/juice-contracts-v3/contracts/str
 import {JBPayDelegateAllocation3_1_1} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBPayDelegateAllocation3_1_1.sol";
 import {JBRedemptionDelegateAllocation3_1_1} from
     "@jbx-protocol/juice-contracts-v3/contracts/structs/JBRedemptionDelegateAllocation3_1_1.sol";
-import {DeployMyDelegateData} from "./structs/DeployMyDelegateData.sol";
+import {DeployJBStrawsData} from "./structs/DeployJBStrawsData.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 /// @notice A Data Source contract that utilizes Merkle Proofs to act as an efficient whitelist mechanism for JB projects.
-contract MyDelegate is JBOperatable, IJBFundingCycleDataSource3_1_1 {
+contract JBStraws is JBOperatable, IJBFundingCycleDataSource3_1_1 {
     bool public payWhitelistEnabled;
     bool public redeemWhitelistEnabled;
     bytes32 public payRoot;
@@ -51,8 +51,8 @@ contract MyDelegate is JBOperatable, IJBFundingCycleDataSource3_1_1 {
     /// @notice Initializes the clone contract with project details and a directory from which ecosystem payment terminals and controller can be found.
     /// @param _projectId The ID of the project this contract's functionality applies to.
     /// @param _directory The directory of terminals and controllers for projects.
-    /// @param _deployMyDelegateData Data necessary to deploy the delegate.
-    function initialize(uint256 _projectId, IJBDirectory _directory, DeployMyDelegateData memory _deployMyDelegateData, IJBController3_1 controller)
+    /// @param _deployJBStrawsData Data necessary to deploy the delegate.
+    function initialize(uint256 _projectId, IJBDirectory _directory, DeployJBStrawsData memory _deployJBStrawsData, IJBController3_1 controller)
         external
     {
         // Stop re-initialization.
@@ -62,11 +62,11 @@ contract MyDelegate is JBOperatable, IJBFundingCycleDataSource3_1_1 {
         projectId = _projectId;
         directory = _directory;
 
-        payRoot = _deployMyDelegateData.initPayRoot;
-        redeemRoot = _deployMyDelegateData.initRedeemRoot;
+        payRoot = _deployJBStrawsData.initPayRoot;
+        redeemRoot = _deployJBStrawsData.initRedeemRoot;
 
-        payWhitelistEnabled =_deployMyDelegateData.initPayWL;
-        redeemWhitelistEnabled = _deployMyDelegateData.initRedeemWL;
+        payWhitelistEnabled =_deployJBStrawsData.initPayWL;
+        redeemWhitelistEnabled = _deployJBStrawsData.initRedeemWL;
 
         _controller = controller;
     }

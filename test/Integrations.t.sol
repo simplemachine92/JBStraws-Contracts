@@ -5,23 +5,23 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "../src/structs/LaunchProjectData.sol";
 import "../src/structs/LaunchFundingCyclesData.sol";
-import "../src/structs/DeployMyDelegateData.sol";
+import "../src/structs/DeployJBStrawsData.sol";
 import "./helpers/TestBaseWorkflowV3.sol";
 import "@jbx-protocol/juice-delegates-registry/src/JBDelegatesRegistry.sol";
 import "@paulrberg/contracts/math/PRBMath.sol";
 
-import {MyDelegate} from "../src/MyDelegate.sol";
-import {MyDelegateProjectDeployer} from "../src/MyDelegateProjectDeployer.sol";
+import {JBStraws} from "../src/JBStraws.sol";
+import {JBStrawsProjectDeployer} from "../src/JBStrawsProjectDeployer.sol";
 import {IJBDelegatesRegistry} from "@jbx-protocol/juice-delegates-registry/src/interfaces/IJBDelegatesRegistry.sol";
 import {IJBFundingCycleBallot} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBFundingCycleBallot.sol";
 import {JBGlobalFundingCycleMetadata} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBFundingCycleMetadata.sol";
 import {JBOperatorData} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBOperatorData.sol";
-import {MyDelegateDeployer} from "./../src/MyDelegateDeployer.sol";
-import {IStrawDelegate} from "../src/interfaces/IStrawDelegate.sol";
+import {JBStrawsDeployer} from "./../src/JBStrawsDeployer.sol";
+import {IJBStrawsDelegate} from "../src/interfaces/IJBStrawsDelegate.sol";
 import {Merkle} from "murky/Merkle.sol";
 
 // Inherits from "./helpers/TestBaseWorkflowV3.sol", called by super.setUp()
-contract MyDelegateTest_Int is TestBaseWorkflowV3 {
+contract JBStrawsTest_Int is TestBaseWorkflowV3 {
     event Proof(bytes32[]);
     using JBFundingCycleMetadataResolver for JBFundingCycle;
 
@@ -31,15 +31,15 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
     JBFundingCycleMetadata _metadata;
     JBFundAccessConstraints[] _fundAccessConstraints; // Default empty
     IJBPaymentTerminal[] _terminals; // Default empty
-    IStrawDelegate _straws;
+    IJBStrawsDelegate _straws;
     Merkle _m;
 
     // Delegate setup params
     JBDelegatesRegistry delegatesRegistry;
-    MyDelegate _delegateImpl;
-    MyDelegateDeployer _delegateDepl;
-    DeployMyDelegateData delegateData;
-    MyDelegateProjectDeployer projectDepl;
+    JBStraws _delegateImpl;
+    JBStrawsDeployer _delegateDepl;
+    DeployJBStrawsData delegateData;
+    JBStrawsProjectDeployer projectDepl;
 
     // Assigned when project is launched
     uint256 _projectId;
@@ -100,13 +100,13 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
         delegatesRegistry = new JBDelegatesRegistry(IJBDelegatesRegistry(address(0)));
 
         // Instance of our delegate code
-        _delegateImpl = new MyDelegate(_jbOperatorStore);
+        _delegateImpl = new JBStraws(_jbOperatorStore);
 
         // Required for our custom project deployer below, eventually attaches the delegate to the funding cycle.
-        _delegateDepl = new MyDelegateDeployer(_delegateImpl, delegatesRegistry);
+        _delegateDepl = new JBStrawsDeployer(_delegateImpl, delegatesRegistry);
 
         // Custom deployer
-        projectDepl = new MyDelegateProjectDeployer(_delegateDepl, _jbOperatorStore);
+        projectDepl = new JBStrawsProjectDeployer(_delegateDepl, _jbOperatorStore);
 
         // The following describes the funding cycle, access constraints, and metadata necessary for our project.
         _data = JBFundingCycleData({
@@ -158,7 +158,7 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
         JBGroupedSplits[] memory _groupedSplits = new JBGroupedSplits[](1); // Default empty
 
         // The imported struct used by our delegate
-        delegateData = DeployMyDelegateData({
+        delegateData = DeployJBStrawsData({
             initPayRoot: tRoot,
             initRedeemRoot: tRoot2,
             initPayWL: false,
@@ -191,7 +191,7 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
 
         vm.label(metadata.dataSource, "Initialized DS");
 
-        _straws = IStrawDelegate(metadata.dataSource);
+        _straws = IJBStrawsDelegate(metadata.dataSource);
     }
 
     function test_setOperator() public {

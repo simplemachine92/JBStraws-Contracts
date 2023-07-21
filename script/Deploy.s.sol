@@ -5,26 +5,26 @@ import "forge-std/Script.sol";
 import "forge-std/Test.sol";
 import {IJBDelegatesRegistry} from "@jbx-protocol/juice-delegates-registry/src/interfaces/IJBDelegatesRegistry.sol";
 import {IJBOperatorStore} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBOperatorStore.sol";
-import {MyDelegate} from "./../src/MyDelegate.sol";
-import {MyDelegateDeployer} from "./../src/MyDelegateDeployer.sol";
-import {MyDelegateProjectDeployer} from "./../src/MyDelegateProjectDeployer.sol";
+import {JBStraws} from "./../src/JBStraws.sol";
+import {JBStrawsDeployer} from "./../src/JBStrawsDeployer.sol";
+import {JBStrawsProjectDeployer} from "./../src/JBStrawsProjectDeployer.sol";
 import {Merkle} from "murky/Merkle.sol";
 
 import "../src/structs/LaunchProjectData.sol";
 import "../src/structs/LaunchFundingCyclesData.sol";
-import "../src/structs/DeployMyDelegateData.sol";
+import "../src/structs/DeployJBStrawsData.sol";
 import "@jbx-protocol/juice-delegates-registry/src/JBDelegatesRegistry.sol";
 import "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBController3_1.sol";
 import "@jbx-protocol/juice-contracts-v3/contracts/JBController3_1.sol";
 import "@jbx-protocol/juice-contracts-v3/contracts/JBETHPaymentTerminal3_1_1.sol";
 import "@paulrberg/contracts/math/PRBMath.sol";
 
-import {MyDelegate} from "../src/MyDelegate.sol";
-import {MyDelegateProjectDeployer} from "../src/MyDelegateProjectDeployer.sol";
+import {JBStraws} from "../src/JBStraws.sol";
+import {JBStrawsProjectDeployer} from "../src/JBStrawsProjectDeployer.sol";
 import {IJBDelegatesRegistry} from "@jbx-protocol/juice-delegates-registry/src/interfaces/IJBDelegatesRegistry.sol";
 import {IJBFundingCycleBallot} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBFundingCycleBallot.sol";
 import {JBGlobalFundingCycleMetadata} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBFundingCycleMetadata.sol";
-import {IStrawDelegate} from "../src/interfaces/IStrawDelegate.sol";
+import {IJBStrawsDelegate} from "../src/interfaces/IJBStrawsDelegate.sol";
 
 import "@jbx-protocol/juice-contracts-v3/contracts/libraries/JBCurrencies.sol";
 import "@jbx-protocol/juice-contracts-v3/contracts/libraries/JBConstants.sol";
@@ -61,16 +61,16 @@ abstract contract Deploy is Script, Test {
     JBFundAccessConstraints[] _fundAccessConstraints; // Default empty
     JBETHPaymentTerminal3_1_1 _jbETHPaymentTerminal = JBETHPaymentTerminal3_1_1(0x82129d4109625F94582bDdF6101a8Cd1a27919f5);
     JBController3_1 _jbController = JBController3_1(0x1d260DE91233e650F136Bf35f8A4ea1F2b68aDB6);
-    IStrawDelegate _straws;
+    IJBStrawsDelegate _straws;
     Merkle _m;
     AccessJBLib internal _accessJBLib;
 
     // Delegate setup params
     JBDelegatesRegistry delegatesRegistry;
-    MyDelegate _delegateImpl;
-    MyDelegateDeployer _delegateDepl;
-    DeployMyDelegateData delegateData;
-    MyDelegateProjectDeployer projectDepl;
+    JBStraws _delegateImpl;
+    JBStrawsDeployer _delegateDepl;
+    DeployJBStrawsData delegateData;
+    JBStrawsProjectDeployer projectDepl;
 
     IJBPaymentTerminal[] _terminals; // Default empty
 
@@ -96,9 +96,9 @@ abstract contract Deploy is Script, Test {
          // AccessJBLib
         _accessJBLib = new AccessJBLib();
 
-        MyDelegate _delegateImplementation = new MyDelegate(_operatorStore);
-        MyDelegateDeployer _delegateDeployer = new MyDelegateDeployer(_delegateImplementation, _registry);
-        projectDepl = new MyDelegateProjectDeployer(
+        JBStraws _delegateImplementation = new JBStraws(_operatorStore);
+        JBStrawsDeployer _delegateDeployer = new JBStrawsDeployer(_delegateImplementation, _registry);
+        projectDepl = new JBStrawsProjectDeployer(
               _delegateDeployer,
               _operatorStore
             );
@@ -152,7 +152,7 @@ abstract contract Deploy is Script, Test {
 
         JBGroupedSplits[] memory _groupedSplits = new JBGroupedSplits[](1); // Default empty
 
-        /* struct DeployMyDelegateData {
+        /* struct DeployJBStrawsData {
         bytes32 initPayRoot;
         bytes32 initRedeemRoot;
         bool initPayWL;
@@ -160,7 +160,7 @@ abstract contract Deploy is Script, Test {
         } */
 
         // The imported struct used by our delegate
-        delegateData = DeployMyDelegateData({
+        delegateData = DeployJBStrawsData({
             initPayRoot: tRoot,
             initRedeemRoot: tRoot2,
             initPayWL: true,

@@ -2,11 +2,11 @@
 pragma solidity ^0.8.20;
 
 
-interface IStrawDelegate {
+interface IJBStrawsDelegate {
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event Split(uint256 split);
 
-    struct DeployMyDelegateData {
+    struct DeployJBStrawsData {
         address initialOwner;
         bytes32 allowedRoot;
     }
@@ -88,7 +88,7 @@ interface IStrawDelegate {
     function didPay(JBDidPayData3_1_1 memory _data) external payable;
     function didRedeem(JBDidRedeemData3_1_1 memory _data) external payable;
     function directory() external view returns (address);
-    function initialize(uint256 _projectId, address _directory, DeployMyDelegateData memory _deployMyDelegateData)
+    function initialize(uint256 _projectId, address _directory, DeployJBStrawsData memory _deployJBStrawsData)
         external;
     function owner() external view returns (address);
     function payRoot() external view returns (bytes32);

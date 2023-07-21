@@ -7,33 +7,32 @@ import {IJBController3_1} from "@jbx-protocol/juice-contracts-v3/contracts/inter
 import {IJBOperatorStore} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBOperatorStore.sol";
 import {JBOperations} from "@jbx-protocol/juice-contracts-v3/contracts/libraries/JBOperations.sol";
 import {JBFundingCycleMetadata} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBFundingCycleMetadata.sol";
-import {DeployMyDelegateData} from "./structs/DeployMyDelegateData.sol";
+import {DeployJBStrawsData} from "./structs/DeployJBStrawsData.sol";
 import {LaunchProjectData} from "./structs/LaunchProjectData.sol";
 import {LaunchFundingCyclesData} from "./structs/LaunchFundingCyclesData.sol";
 import {ReconfigureFundingCyclesData} from "./structs/ReconfigureFundingCyclesData.sol";
-import {MyDelegate} from "./MyDelegate.sol";
-import {MyDelegateDeployer} from "./MyDelegateDeployer.sol";
-import {IDelegateProjectDeployer} from "./interfaces/IDelegateProjectDeployer.sol";
+import {JBStraws} from "./JBStraws.sol";
+import {JBStrawsDeployer} from "./JBStrawsDeployer.sol";
 
 /// @notice Deploys a project, or reconfigure an existing project's funding cycles, with a newly deployed Delegate attached.
-contract MyDelegateProjectDeployer is JBOperatable {
+contract JBStrawsProjectDeployer is JBOperatable {
     /// @notice The contract responsible for deploying the delegate.
-    MyDelegateDeployer public immutable delegateDeployer;
+    JBStrawsDeployer public immutable delegateDeployer;
 
     /// @param _delegateDeployer The delegate deployer.
-    constructor(MyDelegateDeployer _delegateDeployer, IJBOperatorStore _operatorStore) JBOperatable(_operatorStore) {
+    constructor(JBStrawsDeployer _delegateDeployer, IJBOperatorStore _operatorStore) JBOperatable(_operatorStore) {
         delegateDeployer = _delegateDeployer;
     }
 
     /// @notice Launches a new project with a delegate attached.
     /// @param _owner The address to set as the owner of the project. The project's ERC-721 will be owned by this address.
-    /// @param _deployMyDelegateData Data necessary to deploy the delegate.
+    /// @param _deployJBStrawsData Data necessary to deploy the delegate.
     /// @param _launchProjectData Data necessary to launch the project.
     /// @param _controller The controller with which the funding cycles should be configured.
     /// @return projectId The ID of the newly configured project.
     function launchProjectFor(
         address _owner,
-        DeployMyDelegateData memory _deployMyDelegateData,
+        DeployJBStrawsData memory _deployJBStrawsData,
         LaunchProjectData memory _launchProjectData,
         IJBController3_1 _controller
     ) external returns (uint256 projectId) {
@@ -41,8 +40,8 @@ contract MyDelegateProjectDeployer is JBOperatable {
         projectId = _controller.projects().count() + 1;
 
         // Deploy the delegate contract.
-        MyDelegate _delegate =
-            delegateDeployer.deployDelegateFor(projectId, _deployMyDelegateData, _controller.directory(), _controller);
+        JBStraws _delegate =
+            delegateDeployer.deployDelegateFor(projectId, _deployJBStrawsData, _controller.directory(), _controller);
 
         // Launch the project.
         _launchProjectFor(_owner, _launchProjectData, address(_delegate), _controller);
@@ -51,13 +50,13 @@ contract MyDelegateProjectDeployer is JBOperatable {
     /// @notice Launches funding cycles for a project with an attached delegate.
     /// @dev Only a project's owner or operator can launch its funding cycles.
     /// @param _projectId The ID of the project for which the funding cycles will be launched.
-    /// @param _deployMyDelegateData Data necessary to deploy the delegate.
+    /// @param _deployJBStrawsData Data necessary to deploy the delegate.
     /// @param _launchFundingCyclesData Data necessary to launch the funding cycles for the project.
     /// @param _controller The controller with which the funding cycles should be configured.
     /// @return configuration The configuration of the funding cycle that was successfully created.
     function launchFundingCyclesFor(
         uint256 _projectId,
-        DeployMyDelegateData memory _deployMyDelegateData,
+        DeployJBStrawsData memory _deployJBStrawsData,
         LaunchFundingCyclesData memory _launchFundingCyclesData,
         IJBController3_1 _controller
     )
@@ -66,8 +65,8 @@ contract MyDelegateProjectDeployer is JBOperatable {
         returns (uint256 configuration)
     {
         // Deploy the delegate contract.
-        MyDelegate _delegate =
-            delegateDeployer.deployDelegateFor(_projectId, _deployMyDelegateData, _controller.directory(), _controller);
+        JBStraws _delegate =
+            delegateDeployer.deployDelegateFor(_projectId, _deployJBStrawsData, _controller.directory(), _controller);
 
         // Launch the funding cycles.
         return _launchFundingCyclesFor(_projectId, _launchFundingCyclesData, address(_delegate), _controller);
@@ -76,13 +75,13 @@ contract MyDelegateProjectDeployer is JBOperatable {
     /// @notice Reconfigures funding cycles for a project with an attached delegate.
     /// @dev Only a project's owner or operator can configure its funding cycles.
     /// @param _projectId The ID of the project for which funding cycles are being reconfigured.
-    /// @param _deployMyDelegateData Data necessary to deploy a delegate.
+    /// @param _deployJBStrawsData Data necessary to deploy a delegate.
     /// @param _reconfigureFundingCyclesData Data necessary to reconfigure the funding cycle.
     /// @param _controller The controller with which the funding cycles should be configured.
     /// @return configuration The configuration of the successfully reconfigured funding cycle.
     function reconfigureFundingCyclesOf(
         uint256 _projectId,
-        DeployMyDelegateData memory _deployMyDelegateData,
+        DeployJBStrawsData memory _deployJBStrawsData,
         ReconfigureFundingCyclesData memory _reconfigureFundingCyclesData,
         IJBController3_1 _controller
     )
@@ -91,8 +90,8 @@ contract MyDelegateProjectDeployer is JBOperatable {
         returns (uint256 configuration)
     {
         // Deploy the delegate contract.
-        MyDelegate _delegate =
-            delegateDeployer.deployDelegateFor(_projectId, _deployMyDelegateData, _controller.directory(), _controller);
+        JBStraws _delegate =
+            delegateDeployer.deployDelegateFor(_projectId, _deployJBStrawsData, _controller.directory(), _controller);
 
         // Reconfigure the funding cycles.
         return _reconfigureFundingCyclesOf(_projectId, _reconfigureFundingCyclesData, address(_delegate), _controller);
