@@ -84,6 +84,7 @@ abstract contract Deploy is Script, Test {
     uint256 weight = 10 ** 18; // Minting 1 token per eth
 
     bytes32 tRoot = 0xa9273ce1e6b4ac4eb3d07f01103d44e3778747536780332f977c5915415fd7db;
+    bytes32 tRoot2 = 0x93514c6c0f9d7e0d68fd8c122c90ce816eb10b5b6949adb36079c89d4cf3c49a;
 
     function _run(IJBOperatorStore _operatorStore, IJBDelegatesRegistry _registry) internal {
         // jbethpaymentterminal mainnet: 0xfa391de95fcbcd3157268b91d8c7af083e607a5c
@@ -151,9 +152,19 @@ abstract contract Deploy is Script, Test {
 
         JBGroupedSplits[] memory _groupedSplits = new JBGroupedSplits[](1); // Default empty
 
+        /* struct DeployMyDelegateData {
+        bytes32 initPayRoot;
+        bytes32 initRedeemRoot;
+        bool initPayWL;
+        bool initRedeemWL;
+        } */
+
         // The imported struct used by our delegate
         delegateData = DeployMyDelegateData({
-            allowedRoot: tRoot
+            initPayRoot: tRoot,
+            initRedeemRoot: tRoot2,
+            initPayWL: true,
+            initRedeemWL: true
         });
 
         // Assemble all of our previous configuration for our project deployer

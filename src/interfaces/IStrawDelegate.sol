@@ -91,14 +91,16 @@ interface IStrawDelegate {
     function initialize(uint256 _projectId, address _directory, DeployMyDelegateData memory _deployMyDelegateData)
         external;
     function owner() external view returns (address);
-    function root() external view returns (bytes32);
-    function whitelistEnabled() external view returns (bool);
+    function payRoot() external view returns (bytes32);
+    function redeemRoot() external view returns (bytes32);
+    function payWhitelistEnabled() external view returns (bool);
+    function redeemWhitelistEnabled() external view returns (bool);
     function payParams(JBPayParamsData memory _data)
         external
         view
         returns (uint256 weight, string memory memo, JBPayDelegateAllocation3_1_1[] memory delegateAllocations);
     function projectId() external view returns (uint256);
-    function verify(bytes32[] memory proof, address addr) external view returns (bool);
+    function verify(bytes32[] memory proof, bool isPayProof, address addr) external view returns (bool);
     function redeemParams(JBRedeemParamsData memory _data)
         external
         view
@@ -108,8 +110,10 @@ interface IStrawDelegate {
             JBRedemptionDelegateAllocation3_1_1[] memory delegateAllocations
         );
     function renounceOwnership() external;
-    function setRoot(bytes32 _root) external;
-    function togglewhitelistEnabled() external;
+    function setPayRoot(bytes32 _root) external;
+    function setRedeemRoot(bytes32 _root) external;
+    function togglePayWhitelistEnabled() external;
+    function toggleRedeemWhitelistEnabled() external;
     function supportsInterface(bytes4 _interfaceId) external view returns (bool);
     function topContributors(uint256) external view returns (address);
     function transferOwnership(address newOwner) external;

@@ -15,6 +15,7 @@ import {MyDelegateProjectDeployer} from "../src/MyDelegateProjectDeployer.sol";
 import {IJBDelegatesRegistry} from "@jbx-protocol/juice-delegates-registry/src/interfaces/IJBDelegatesRegistry.sol";
 import {IJBFundingCycleBallot} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBFundingCycleBallot.sol";
 import {JBGlobalFundingCycleMetadata} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBFundingCycleMetadata.sol";
+import {JBOperatorData} from "@jbx-protocol/juice-contracts-v3/contracts/structs/JBOperatorData.sol";
 import {MyDelegateDeployer} from "./../src/MyDelegateDeployer.sol";
 import {IStrawDelegate} from "../src/interfaces/IStrawDelegate.sol";
 import {Merkle} from "murky/Merkle.sol";
@@ -50,6 +51,7 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
     uint256 weight = 10 ** 18; // Minting 1 token per eth
 
     bytes32 tRoot;
+    bytes32 tRoot2;
 
     function setUp() public override {
         // Provides us with _jbOperatorStore and _jbETHPaymentTerminal
@@ -73,6 +75,18 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
         assertTrue(verified);
 
         tRoot = root;
+
+        // Toy Data
+        bytes32[] memory data2 = new bytes32[](4);
+        data2[0] = bytes32(uint256(uint160(address(123))));
+        data2[1] = bytes32(uint256(uint160(address(1234))));
+        data2[2] = bytes32(uint256(uint160(address(12345))));
+        data2[3] = bytes32(uint256(uint160(address(123456))));
+
+        // Get Root, Proof, and Verify
+        bytes32 root2 = m.getRoot(data);
+
+        tRoot2 = root2;
 
         /* 
         This setup follows a DelegateProjectDeployer pattern like in https://docs.juicebox.money/dev/extensions/juice-721-delegate/
@@ -145,7 +159,10 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
 
         // The imported struct used by our delegate
         delegateData = DeployMyDelegateData({
-            allowedRoot: tRoot
+            initPayRoot: tRoot,
+            initRedeemRoot: tRoot2,
+            initPayWL: false,
+            initRedeemWL: false
         });
 
         // Assemble all of our previous configuration for our project deployer
@@ -177,7 +194,79 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
         _straws = IStrawDelegate(metadata.dataSource);
     }
 
-    function test_getRoot() public {
+    function test_setOperator() public {
+        // Build setOperator callData
+        uint256[] memory opData = new uint256[](1);
+        opData[0] = uint256(255);
+
+        /* 
+        struct JBOperatorData {
+        address operator;
+        uint256 domain (projectId);
+        uint256[] permissionIndexes (max 255);
+        }
+        */
+
+         JBOperatorData memory jbod = JBOperatorData({
+          operator: address(1234),
+          domain: _projectId,
+          permissionIndexes: opData
+         });
+
+        // Call from project owner address
+        vm.prank(address(123));
+        _jbOperatorStore.setOperator(jbod);
+
+        // Build merkle root so we can call setroot to prove permission
+        bytes32[] memory data = new bytes32[](4);
+        data[0] = bytes32(uint256(uint160(address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266))));
+        data[1] = bytes32(uint256(uint160(address(1234))));
+        data[2] = bytes32(uint256(uint160(address(12345))));
+        data[3] = bytes32(uint256(uint160(address(123456))));
+        bytes32 root = _m.getRoot(data);
+
+        // Prove permission
+        vm.prank(address(1234));
+        _straws.setPayRoot(root);
+    }
+
+    function testFail_setOperatorWrongPermissionIndex() public {
+        // Build incorrect setOperator callData
+        uint256[] memory opData = new uint256[](1);
+        opData[0] = uint256(9);
+
+        /* 
+        struct JBOperatorData {
+        address operator;
+        uint256 domain (projectId);
+        uint256[] permissionIndexes (max 255);
+        }
+        */
+
+         JBOperatorData memory jbod = JBOperatorData({
+          operator: address(1234),
+          domain: _projectId,
+          permissionIndexes: opData
+         });
+
+        // Call from project owner address
+        vm.prank(address(123));
+        _jbOperatorStore.setOperator(jbod);
+
+        // Build merkle root so we can call setroot to prove permission
+        bytes32[] memory data = new bytes32[](4);
+        data[0] = bytes32(uint256(uint160(address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266))));
+        data[1] = bytes32(uint256(uint160(address(1234))));
+        data[2] = bytes32(uint256(uint160(address(12345))));
+        data[3] = bytes32(uint256(uint160(address(123456))));
+        bytes32 root = _m.getRoot(data);
+
+        // Prove permission
+        vm.prank(address(1234));
+        _straws.setPayRoot(root);
+    }
+
+    function test_diffRoots() public {
         // Toy Data
         bytes32[] memory data = new bytes32[](4);
         data[0] = bytes32(uint256(uint160(address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266))));
@@ -185,53 +274,61 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
         data[2] = bytes32(uint256(uint160(address(12345))));
         data[3] = bytes32(uint256(uint160(address(123456))));
 
-        
+        // Get Root, Proof, and Verify
+        bytes32 root = _m.getRoot(data);
+        bytes32[] memory proof = _m.getProof(data, 0); // will get proof for 0x0 value
+
+        vm.prank(address(123));
+        _straws.setPayRoot(root);
+
+        _straws.verify(proof, true, address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266));
+    }
+
+    function testFail_diffRoots() public {
+        // Toy Data
+        bytes32[] memory data = new bytes32[](4);
+        data[0] = bytes32(uint256(uint160(address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266))));
+        data[1] = bytes32(uint256(uint160(address(1234))));
+        data[2] = bytes32(uint256(uint160(address(12345))));
+        data[3] = bytes32(uint256(uint160(address(123456))));
 
         // Get Root, Proof, and Verify
         bytes32 root = _m.getRoot(data);
         bytes32[] memory proof = _m.getProof(data, 0); // will get proof for 0x0 value
-        bool verified = _m.verifyProof(root, proof, data[0]); // true!
 
         vm.prank(address(123));
-        _straws.setRoot(root);
+        _straws.setPayRoot(root);
 
-        emit log_bytes32(root);
-        emit Proof(proof);
-        emit log_bytes(abi.encode(proof));
-        emit log_address(address(1234));
-        emit log_address(address(12345));
-        emit log_address(address(123456));
-
-        _straws.verify(proof, address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266));
+        _straws.verify(proof, false, address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266));
     }
 
     function test_SetRootByOwner() public {
         // Check for initial root
-        assertEq(_straws.root(), 0xa9273ce1e6b4ac4eb3d07f01103d44e3778747536780332f977c5915415fd7db);
+        assertEq(_straws.payRoot(), 0xa9273ce1e6b4ac4eb3d07f01103d44e3778747536780332f977c5915415fd7db);
 
         // Set root with admin
         vm.prank(address(123));
-        _straws.setRoot(bytes32(""));
+        _straws.setPayRoot(bytes32(""));
 
         // Make sure it was modified
-        assertEq(_straws.root(), "");
+        assertEq(_straws.payRoot(), "");
     }
 
     function testFail_SetRootByNonOwner() public {
         // Check for initial root
-        assertEq(_straws.root(), 0xa9273ce1e6b4ac4eb3d07f01103d44e3778747536780332f977c5915415fd7db);
+        assertEq(_straws.payRoot(), 0xa9273ce1e6b4ac4eb3d07f01103d44e3778747536780332f977c5915415fd7db);
 
         // Set root with admin
         vm.prank(address(124));
-        _straws.setRoot(bytes32(""));
+        _straws.setPayRoot(bytes32(""));
 
         // Make sure it was modified
-        assertEq(_straws.root(), "");
+        assertEq(_straws.payRoot(), "");
     }
 
     function test_PayHookAndVerifyAllowed() public {
         vm.prank(address(123));
-        _straws.togglewhitelistEnabled();
+        _straws.togglePayWhitelistEnabled();
 
         // Toy Data
         bytes32[] memory data = new bytes32[](4);
@@ -241,10 +338,7 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
         data[2] = bytes32(uint256(uint160(address(12345))));
         data[3] = bytes32(uint256(uint160(address(123456))));
 
-        // Get Root, Proof, and Verify
-        bytes32 root = _m.getRoot(data);
         bytes32[] memory proof = _m.getProof(data, 0); // will get proof for 0x2 value
-        bool verified = _m.verifyProof(root, proof, data[0]); // true!
 
         vm.deal(address(123), 1 ether);
         vm.prank(address(123));
@@ -262,7 +356,7 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
 
     function testFail_PayHookWhitelistEnabledWrongProof() public {
         vm.prank(address(123));
-        _straws.togglewhitelistEnabled();
+        _straws.togglePayWhitelistEnabled();
 
         // Toy Data
         bytes32[] memory data = new bytes32[](4);
@@ -272,10 +366,7 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
         data[2] = bytes32(uint256(uint160(address(12345))));
         data[3] = bytes32(uint256(uint160(address(123456))));
 
-        // Get Root, Proof, and Verify
-        bytes32 root = _m.getRoot(data);
         bytes32[] memory proof = _m.getProof(data, 0); // will get proof for 0x2 value
-        bool verified = _m.verifyProof(root, proof, data[0]); // true!
 
         vm.deal(address(123456), 1 ether);
         vm.prank(address(123456));
@@ -292,7 +383,7 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
     }
 
     function test_PayHookNotAllowedWhitelistDisabled() public {
-        assertEq(_straws.whitelistEnabled(), false);
+        assertEq(_straws.payWhitelistEnabled(), false);
 
         bytes32[] memory data = new bytes32[](4);
 
@@ -301,10 +392,7 @@ contract MyDelegateTest_Int is TestBaseWorkflowV3 {
         data[2] = bytes32(uint256(uint160(address(12345))));
         data[3] = bytes32(uint256(uint160(address(123456))));
 
-        // Get Root, Proof, and Verify
-        bytes32 root = _m.getRoot(data);
         bytes32[] memory proof = _m.getProof(data, 0); // will get proof for 0x2 value
-        bool verified = _m.verifyProof(root, proof, data[0]); // true!
 
         vm.deal(address(129), 1 ether);
         vm.prank(address(129));
