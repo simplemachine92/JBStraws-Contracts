@@ -44,8 +44,7 @@ contract JBStraws is JBOperatable, IJBFundingCycleDataSource3_1_1 {
     /// @param _interfaceId The ID of the interface to check for adherence to.
     /// @return A flag indicating if the provided interface ID is supported.
     function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
-        return _interfaceId == type(IJBFundingCycleDataSource3_1_1).interfaceId
-            || _interfaceId == type(IJBPayDelegate3_1_1).interfaceId || _interfaceId == type(IJBRedemptionDelegate3_1_1).interfaceId;
+        return _interfaceId == type(IJBFundingCycleDataSource3_1_1).interfaceId;
     }
 
     /// @notice Initializes the clone contract with project details and a directory from which ecosystem payment terminals and controller can be found.
